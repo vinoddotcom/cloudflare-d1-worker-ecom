@@ -7,9 +7,15 @@ import { ProductVariant } from './product.model';
 export interface Cart extends BaseModel {
     id: string;
     user_id?: string;
+    userId?: string; // For backward compatibility
     guest_token?: string;
+    couponCode?: string;
     items?: CartItem[];
+    subtotal?: number;
+    discount?: number;
     total?: number;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 /**
@@ -26,9 +32,15 @@ export interface CartCreateInput {
 export interface CartItem extends BaseModel {
     id: number;
     cart_id: string;
-    product_variant_id: number;
+    product_variant_id?: number;
+    productId?: string; // For backward compatibility
     quantity: number;
-    price: number;
+    price?: number;
+    productName?: string;
+    productSku?: string;
+    productImage?: any;
+    attributes?: Record<string, string>;
+    total?: number;
     product_variant?: ProductVariant;
 }
 

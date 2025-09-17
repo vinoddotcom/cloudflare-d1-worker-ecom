@@ -3,6 +3,47 @@ import { BaseRepository } from './base.repository';
 import { Cart, CartItem } from '../../models/cart.model';
 
 /**
+ * Interface for the database representation of a cart
+ */
+interface DBCart {
+    id: string;
+    user_id: string;
+    coupon_code: string | null;
+    discount_amount: number | null;
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * Interface for the database representation of a cart item
+ */
+interface DBCartItem {
+    id: string;
+    cart_id: string;
+    product_id: string;
+    quantity: number;
+    attributes: string | null;
+    product_name?: string;
+    product_price?: number;
+    product_images?: string;
+    product_sku?: string;
+}
+
+/**
+ * Interface for the database representation of a coupon
+ */
+interface DBCoupon {
+    id: string;
+    code: string;
+    discount_type: 'percentage' | 'fixed';
+    discount_value: number;
+    minimum_purchase: number | null;
+    max_discount: number | null;
+    expires_at: string | null;
+    is_active: number;
+}
+
+/**
  * Repository for cart-related database operations
  */
 export class CartRepository extends BaseRepository<Cart> {
@@ -24,7 +65,7 @@ export class CartRepository extends BaseRepository<Cart> {
         WHERE user_id = ?
       `;
 
-            const cart = await this.db.prepare(cartQuery).bind(userId).first();
+            const cart = await this.db.prepare(cartQuery).bind(userId).first<DBCart>();
 
             // If no cart exists, create one
             if (!cart) {
@@ -41,6 +82,7 @@ export class CartRepository extends BaseRepository<Cart> {
                 // Return new empty cart
                 return {
                     id: cartId,
+                    user_id: userId,
                     userId,
                     items: [],
                     subtotal: 0,
@@ -48,6 +90,8 @@ export class CartRepository extends BaseRepository<Cart> {
                     total: 0,
                     createdAt: now,
                     updatedAt: now,
+                    created_at: now,
+                    updated_at: now,
                 };
             }
 
@@ -68,16 +112,17 @@ export class CartRepository extends BaseRepository<Cart> {
         WHERE ci.cart_id = ?
       `;
 
-            const itemsResult = await this.db.prepare(itemsQuery).bind(cart.id).all();
+            const itemsResult = await this.db.prepare(itemsQuery).bind(cart.id).all<DBCartItem>();
 
             // Process cart items
-            const items = itemsResult.results.map((item: any) => {
+            const items: any[] = (itemsResult.results || []).map((item: DBCartItem) => {
                 const attributes = item.attributes ? JSON.parse(item.attributes) : {};
-                const productImages = item.product_images ? JSON.parse(item.product_images) : [];
+                const productImages = item.product_images ? JSON.parse(item.product_images as string) : [];
                 const firstImage = productImages.length > 0 ? productImages[0] : null;
 
                 return {
                     id: item.id,
+                    cart_id: item.cart_id,
                     productId: item.product_id,
                     productName: item.product_name,
                     productSku: item.product_sku,
@@ -85,28 +130,31 @@ export class CartRepository extends BaseRepository<Cart> {
                     price: item.product_price,
                     quantity: item.quantity,
                     attributes,
-                    total: item.product_price * item.quantity,
+                    total: (item.product_price || 0) * item.quantity,
                 };
             });
 
             // Calculate cart totals
-            const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.total, 0);
+            const subtotal = items.reduce((sum: number, item: any) => sum + item.total, 0);
             const discount = cart.discount_amount || 0;
             const total = subtotal - discount;
 
             // Construct the cart object
             return {
                 id: cart.id,
+                user_id: cart.user_id,
                 userId: cart.user_id,
-                couponCode: cart.coupon_code,
-                items,
+                couponCode: cart.coupon_code || undefined,
+                items: items as CartItem[],
                 subtotal,
                 discount,
                 total,
+                created_at: cart.created_at,
+                updated_at: cart.updated_at,
                 createdAt: cart.created_at,
                 updatedAt: cart.updated_at,
             };
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching cart:', error);
             throw new Error(`Failed to fetch cart for user ${userId}`);
         }
@@ -152,7 +200,7 @@ export class CartRepository extends BaseRepository<Cart> {
 
             const existingItem = await this.db.prepare(existingItemQuery)
                 .bind(cartId, item.productId)
-                .first();
+                .first<{ id: string; quantity: number }>();
 
             // If item exists, update quantity, otherwise create new item
             if (existingItem) {
@@ -190,9 +238,9 @@ export class CartRepository extends BaseRepository<Cart> {
 
             // Return updated cart
             return this.getCartByUserId(userId) as Promise<Cart>;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error adding item to cart:', error);
-            throw new Error(`Failed to add item to cart: ${error.message}`);
+            throw new Error(`Failed to add item to cart: ${error.message || String(error)}`);
         }
     }
 
@@ -219,7 +267,7 @@ export class CartRepository extends BaseRepository<Cart> {
 
             const verifyResult = await this.db.prepare(verifyQuery)
                 .bind(cartItemId, userId)
-                .first();
+                .first<{ id: string }>();
 
             if (!verifyResult) {
                 throw new Error('Cart item not found or does not belong to user');
@@ -246,7 +294,7 @@ export class CartRepository extends BaseRepository<Cart> {
         WHERE ci.id = ?
       `;
 
-            const cartResult = await this.db.prepare(cartQuery).bind(cartItemId).first();
+            const cartResult = await this.db.prepare(cartQuery).bind(cartItemId).first<{ id: string }>();
 
             if (cartResult) {
                 const updateCartQuery = `
@@ -258,9 +306,9 @@ export class CartRepository extends BaseRepository<Cart> {
 
             // Return updated cart
             return this.getCartByUserId(userId) as Promise<Cart>;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating cart item quantity:', error);
-            throw new Error(`Failed to update cart item quantity: ${error.message}`);
+            throw new Error(`Failed to update cart item quantity: ${error.message || String(error)}`);
         }
     }
 
@@ -282,7 +330,7 @@ export class CartRepository extends BaseRepository<Cart> {
 
             const verifyResult = await this.db.prepare(verifyQuery)
                 .bind(cartItemId, userId)
-                .first();
+                .first<{ id: string; cart_id: string }>();
 
             if (!verifyResult) {
                 throw new Error('Cart item not found or does not belong to user');
@@ -305,9 +353,9 @@ export class CartRepository extends BaseRepository<Cart> {
 
             // Return updated cart
             return this.getCartByUserId(userId) as Promise<Cart>;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error removing cart item:', error);
-            throw new Error(`Failed to remove cart item: ${error.message}`);
+            throw new Error(`Failed to remove cart item: ${error.message || String(error)}`);
         }
     }
 
@@ -322,7 +370,7 @@ export class CartRepository extends BaseRepository<Cart> {
         SELECT id FROM carts WHERE user_id = ?
       `;
 
-            const cart = await this.db.prepare(cartQuery).bind(userId).first();
+            const cart = await this.db.prepare(cartQuery).bind(userId).first<{ id: string }>();
 
             if (!cart) {
                 // No cart exists, nothing to clear
@@ -345,9 +393,9 @@ export class CartRepository extends BaseRepository<Cart> {
       `;
 
             await this.db.prepare(updateCartQuery).bind(now, cart.id).run();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error clearing cart:', error);
-            throw new Error(`Failed to clear cart: ${error.message}`);
+            throw new Error(`Failed to clear cart: ${error.message || String(error)}`);
         }
     }
 
@@ -364,7 +412,7 @@ export class CartRepository extends BaseRepository<Cart> {
         SELECT id FROM carts WHERE user_id = ?
       `;
 
-            const cart = await this.db.prepare(cartQuery).bind(userId).first();
+            const cart = await this.db.prepare(cartQuery).bind(userId).first<{ id: string }>();
 
             if (!cart) {
                 throw new Error('Cart not found');
@@ -384,7 +432,7 @@ export class CartRepository extends BaseRepository<Cart> {
           AND (expires_at IS NULL OR expires_at > datetime('now'))
       `;
 
-            const coupon = await this.db.prepare(couponQuery).bind(couponCode).first();
+            const coupon = await this.db.prepare(couponQuery).bind(couponCode).first<DBCoupon>();
 
             if (!coupon) {
                 throw new Error('Coupon not found or expired');
@@ -400,13 +448,15 @@ export class CartRepository extends BaseRepository<Cart> {
             let discountAmount = 0;
 
             // Check if cart meets minimum purchase requirement
-            if (coupon.minimum_purchase && cart2.subtotal < coupon.minimum_purchase) {
+            const subtotal = cart2?.subtotal || 0;
+
+            if (coupon.minimum_purchase && subtotal < coupon.minimum_purchase) {
                 throw new Error(`Cart subtotal must be at least ${coupon.minimum_purchase}`);
             }
 
             // Calculate discount based on type
             if (coupon.discount_type === 'percentage') {
-                discountAmount = (cart2.subtotal * coupon.discount_value) / 100;
+                discountAmount = (subtotal * coupon.discount_value) / 100;
             } else if (coupon.discount_type === 'fixed') {
                 discountAmount = coupon.discount_value;
             }
@@ -430,9 +480,9 @@ export class CartRepository extends BaseRepository<Cart> {
 
             // Return updated cart
             return this.getCartByUserId(userId) as Promise<Cart>;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error applying coupon:', error);
-            throw new Error(`Failed to apply coupon: ${error.message}`);
+            throw new Error(`Failed to apply coupon: ${error.message || String(error)}`);
         }
     }
 }

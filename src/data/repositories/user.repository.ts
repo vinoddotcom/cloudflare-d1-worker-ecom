@@ -82,4 +82,34 @@ export class UserRepository extends BaseRepository<User> {
 
         return result.success;
     }
+
+    /**
+     * Find a user by ID (alias for backward compatibility)
+     * @param id User ID
+     * @returns User object or null if not found
+     */
+    async findUserById(id: string): Promise<User | null> {
+        return this.findById(id);
+    }
+
+    /**
+     * Update a user by user object (for backward compatibility)
+     * @param user User data with ID
+     * @returns true if successful
+     */
+    async updateUserObject(user: User): Promise<boolean> {
+        if (!user.id) {
+            throw new Error('User ID is required for update');
+        }
+        return this.updateUser(user.id, user);
+    }
+
+    /**
+     * Delete a user by ID (alias for backward compatibility)
+     * @param id User ID
+     * @returns true if successful
+     */
+    async deleteUser(id: string): Promise<boolean> {
+        return this.delete(id);
+    }
 }

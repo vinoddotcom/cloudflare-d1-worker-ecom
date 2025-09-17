@@ -99,10 +99,16 @@ export const requestLogger = () => {
         const startTime = Date.now();
 
         // Log request details
+        // Convert headers to an object without using .entries()
+        const headersObj: Record<string, string> = {};
+        request.headers.forEach((value, key) => {
+            headersObj[key] = value;
+        });
+
         logger.info(`[${requestId}] Request started`, {
             method: request.method,
             url: request.url,
-            headers: Object.fromEntries(request.headers.entries()),
+            headers: headersObj,
         });
 
         // Attach requestId to the request object for use in other middleware/handlers

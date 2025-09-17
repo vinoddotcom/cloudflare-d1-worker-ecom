@@ -5,6 +5,7 @@ import { errorResponse, successResponse } from '../utils/response';
 import { ProductRepository } from '../data/repositories/product.repository';
 import { validateRequest } from '../middleware/validator';
 import { z } from 'zod';
+import { Product, ProductCreateInput, ProductUpdateInput } from '../models/product.model';
 
 /**
  * Controller for product-related operations
@@ -30,7 +31,7 @@ export class ProductController {
             const sortOrderParam = url.searchParams.get('sortOrder');
             const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-            const products = await this.productRepository.findAll({
+            const products = await this.productRepository.findAllWithOptions({
                 page,
                 limit,
                 category,
@@ -124,10 +125,21 @@ export class ProductController {
             }
 
             // Create the product
-            const newProduct = await this.productRepository.create({
-                ...productData,
-                createdBy: request.userId, // From the authenticated user
-            });
+            const productCreateData: ProductCreateInput = {
+                ...productData
+            };
+
+            // Create the product using repository method - ensure required fields are present
+            const productDataWithDefaults = {
+                ...productCreateData,
+                featured: productCreateData.featured ?? false,
+                is_active: productCreateData.is_active ?? true
+            } as Omit<Product, 'id'>;
+
+            const productId = await this.productRepository.createProduct(productDataWithDefaults);
+
+            // Get the newly created product
+            const newProduct = await this.productRepository.findById(productId.toString());
 
             return successResponse(newProduct, 201);
         } catch (error) {
@@ -190,10 +202,15 @@ export class ProductController {
             }
 
             // Update the product
-            const updatedProduct = await this.productRepository.update(productId, {
-                ...productData,
-                updatedBy: request.userId, // From the authenticated user
-            });
+            const productUpdateData: ProductUpdateInput = {
+                ...productData
+            };
+
+            // Perform the update
+            await this.productRepository.update(productId, productUpdateData);
+
+            // Get the updated product
+            const updatedProduct = await this.productRepository.findById(productId);
 
             return successResponse(updatedProduct);
         } catch (error) {

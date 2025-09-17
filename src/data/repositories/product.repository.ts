@@ -1,6 +1,41 @@
-import { Env, D1Database } from '../../models/common.model';
+import { Env, D1Database, D1Result } from '../../models/common.model';
 import { BaseRepository } from './base.repository';
-import { Product, ProductCategory } from '../../models/product.model';
+import { Product, ProductCategory, ProductImage, ProductVariant, InventoryItem } from '../../models/product.model';
+
+/**
+ * Interface for the database representation of a product
+ */
+interface DBProduct {
+    id: number;
+    sku: string;
+    name: string;
+    description: string | null;
+    price: number;
+    compare_at_price: number | null;
+    cost_price: number | null;
+    weight: number | null;
+    weight_unit: string | null;
+    featured: number;
+    is_active: number;
+    category_id: number | null;
+    images: string | null; // JSON string
+    created_at: number;
+    updated_at: number;
+    // Joined fields
+    categoryName?: string;
+}
+
+/**
+ * Interface for product query options
+ */
+interface ProductQueryOptions {
+    page?: number;
+    limit?: number;
+    category?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+}
 
 /**
  * Repository for product-related database operations
@@ -11,22 +46,48 @@ export class ProductRepository extends BaseRepository<Product> {
     }
 
     /**
+     * Find all products with the standard BaseRepository interface
+     * This implementation satisfies the contract of the base class
+     */
+    override async findAll(
+        page: number = 1,
+        limit: number = 20,
+        orderBy: string = 'id',
+        direction: 'asc' | 'desc' = 'asc'
+    ): Promise<{ data: Product[]; total: number }> {
+        try {
+            const result = await this.findAllWithOptions({
+                page,
+                limit,
+                sortBy: orderBy,
+                sortOrder: direction
+            });
+
+            return {
+                data: result.products,
+                total: result.total
+            };
+        } catch (error) {
+            console.error('Error in findAll:', error);
+            throw new Error('Failed to fetch products');
+        }
+    }
+
+    /**
      * Find all products with pagination, filtering, and sorting
      */
-    async findAll(options: {
-        page?: number;
-        limit?: number;
-        category?: string;
-        search?: string;
-        sortBy?: string;
-        sortOrder?: 'asc' | 'desc';
-    }): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
+    async findAllWithOptions(options: ProductQueryOptions): Promise<{
+        products: Product[];
+        total: number;
+        page: number;
+        limit: number
+    }> {
         const {
             page = 1,
             limit = 10,
             category,
             search,
-            sortBy = 'createdAt',
+            sortBy = 'created_at',
             sortOrder = 'desc',
         } = options;
 
@@ -39,18 +100,21 @@ export class ProductRepository extends BaseRepository<Product> {
         p.name, 
         p.description, 
         p.price, 
+        p.compare_at_price,
+        p.cost_price,
+        p.weight,
+        p.weight_unit,
         p.sku, 
-        p.stock_quantity as stockQuantity,
+        p.featured,
+        p.is_active,
         p.images,
-        p.attributes,
-        p.is_active as isActive,
-        p.created_at as createdAt,
-        p.updated_at as updatedAt,
-        c.id as categoryId,
+        p.created_at,
+        p.updated_at,
+        c.id as category_id,
         c.name as categoryName
       FROM products p
       LEFT JOIN product_categories c ON p.category_id = c.id
-      WHERE p.is_active = 1
+      WHERE 1=1
     `;
 
         // Add category filter if provided
@@ -70,7 +134,7 @@ export class ProductRepository extends BaseRepository<Product> {
         query += ` LIMIT ? OFFSET ?`;
 
         // Build the parameters array
-        const params = [];
+        const params: any[] = [];
         if (category) params.push(category);
         if (search) {
             const searchPattern = `%${search}%`;
@@ -83,7 +147,7 @@ export class ProductRepository extends BaseRepository<Product> {
       SELECT COUNT(*) as total
       FROM products p
       LEFT JOIN product_categories c ON p.category_id = c.id
-      WHERE p.is_active = 1
+      WHERE 1=1
     `;
 
         if (category) {
@@ -95,7 +159,7 @@ export class ProductRepository extends BaseRepository<Product> {
         }
 
         // Build the count parameters
-        const countParams = [];
+        const countParams: any[] = [];
         if (category) countParams.push(category);
         if (search) {
             const searchPattern = `%${search}%`;
@@ -104,37 +168,15 @@ export class ProductRepository extends BaseRepository<Product> {
 
         try {
             // Execute the queries
-            const productsResult = await this.db.prepare(query).bind(...params).all();
-            const countResult = await this.db.prepare(countQuery).bind(...countParams).first();
+            const productsResult = await this.db.prepare(query).bind(...params).all<DBProduct>();
+            const countResult = await this.db.prepare(countQuery).bind(...countParams).first<{ total: number }>();
 
-            // Parse the results
-            const products = productsResult.results.map((row: any) => {
-                // Parse JSON fields
-                const images = row.images ? JSON.parse(row.images) : [];
-                const attributes = row.attributes ? JSON.parse(row.attributes) : {};
-
-                return {
-                    id: row.id,
-                    name: row.name,
-                    description: row.description,
-                    price: row.price,
-                    sku: row.sku,
-                    stockQuantity: row.stockQuantity,
-                    images,
-                    attributes,
-                    isActive: Boolean(row.isActive),
-                    createdAt: row.createdAt,
-                    updatedAt: row.updatedAt,
-                    category: {
-                        id: row.categoryId,
-                        name: row.categoryName,
-                    },
-                };
-            });
+            // Transform database rows to Product objects
+            const products = (productsResult.results || []).map(row => this.mapDBProductToProduct(row));
 
             return {
                 products,
-                total: countResult.total,
+                total: countResult?.total || 0,
                 page,
                 limit,
             };
@@ -147,55 +189,24 @@ export class ProductRepository extends BaseRepository<Product> {
     /**
      * Find a product by its ID
      */
-    async findById(id: string): Promise<Product | null> {
+    override async findById(id: string | number): Promise<Product | null> {
         const query = `
       SELECT 
-        p.id, 
-        p.name, 
-        p.description, 
-        p.price, 
-        p.sku, 
-        p.stock_quantity as stockQuantity,
-        p.images,
-        p.attributes,
-        p.is_active as isActive,
-        p.created_at as createdAt,
-        p.updated_at as updatedAt,
-        c.id as categoryId,
+        p.*,
         c.name as categoryName
       FROM products p
       LEFT JOIN product_categories c ON p.category_id = c.id
-      WHERE p.id = ? AND p.is_active = 1
+      WHERE p.id = ?
     `;
 
         try {
-            const result = await this.db.prepare(query).bind(id).first();
+            const result = await this.db.prepare(query).bind(id).first<DBProduct>();
 
             if (!result) {
                 return null;
             }
 
-            // Parse JSON fields
-            const images = result.images ? JSON.parse(result.images) : [];
-            const attributes = result.attributes ? JSON.parse(result.attributes) : {};
-
-            return {
-                id: result.id,
-                name: result.name,
-                description: result.description,
-                price: result.price,
-                sku: result.sku,
-                stockQuantity: result.stockQuantity,
-                images,
-                attributes,
-                isActive: Boolean(result.isActive),
-                createdAt: result.createdAt,
-                updatedAt: result.updatedAt,
-                category: {
-                    id: result.categoryId,
-                    name: result.categoryName,
-                },
-            };
+            return this.mapDBProductToProduct(result);
         } catch (error) {
             console.error('Error finding product by ID:', error);
             throw new Error(`Failed to fetch product with ID ${id}`);
@@ -211,21 +222,36 @@ export class ProductRepository extends BaseRepository<Product> {
         id, 
         name, 
         description,
-        created_at as createdAt,
-        updated_at as updatedAt
+        parent_id,
+        image_url,
+        is_active,
+        created_at,
+        updated_at
       FROM product_categories
       ORDER BY name ASC
     `;
 
         try {
-            const result = await this.db.prepare(query).all();
+            const result = await this.db.prepare(query).all<{
+                id: number;
+                name: string;
+                description: string | null;
+                parent_id: number | null;
+                image_url: string | null;
+                is_active: number;
+                created_at: number;
+                updated_at: number;
+            }>();
 
-            return result.results.map((row: any) => ({
+            return (result.results || []).map(row => ({
                 id: row.id,
                 name: row.name,
-                description: row.description,
-                createdAt: row.createdAt,
-                updatedAt: row.updatedAt,
+                description: row.description || undefined,
+                parent_id: row.parent_id || undefined,
+                image_url: row.image_url || undefined,
+                is_active: Boolean(row.is_active),
+                created_at: row.created_at,
+                updated_at: row.updated_at
             }));
         } catch (error) {
             console.error('Error finding product categories:', error);
@@ -236,57 +262,54 @@ export class ProductRepository extends BaseRepository<Product> {
     /**
      * Create a new product
      */
-    async create(data: Partial<Product> & { createdBy: string }): Promise<Product> {
-        const now = new Date().toISOString();
-        const id = crypto.randomUUID();
+    override async create(data: Omit<Product, 'id'>): Promise<number> {
+        const now = Date.now();
 
         const query = `
       INSERT INTO products (
-        id, 
         name, 
         description, 
         price, 
+        compare_at_price,
+        cost_price,
+        weight,
+        weight_unit,
         category_id,
         sku, 
-        stock_quantity,
-        images,
-        attributes,
+        featured,
         is_active,
-        created_by,
+        images,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-        // Serialize JSON fields
-        const images = data.images ? JSON.stringify(data.images) : '[]';
-        const attributes = data.attributes ? JSON.stringify(data.attributes) : '{}';
+        // Serialize images if present
+        const images = data.images ? JSON.stringify(data.images) : null;
 
         try {
-            await this.db.prepare(query).bind(
-                id,
+            const result = await this.db.prepare(query).bind(
                 data.name,
-                data.description,
+                data.description || null,
                 data.price,
-                data.category?.id,
+                data.compare_at_price || null,
+                data.cost_price || null,
+                data.weight || null,
+                data.weight_unit || null,
+                data.categories && data.categories.length > 0 ? data.categories[0].id : null,
                 data.sku,
-                data.stockQuantity,
+                data.featured ? 1 : 0,
+                data.is_active ? 1 : 0,
                 images,
-                attributes,
-                1, // isActive = true
-                data.createdBy,
                 now,
                 now
             ).run();
 
-            // Fetch the newly created product to return
-            const newProduct = await this.findById(id);
-
-            if (!newProduct) {
+            if (!result.success) {
                 throw new Error('Failed to create product');
             }
 
-            return newProduct;
+            return (result as any).lastRowId;
         } catch (error) {
             console.error('Error creating product:', error);
             throw new Error('Failed to create product');
@@ -296,7 +319,7 @@ export class ProductRepository extends BaseRepository<Product> {
     /**
      * Update an existing product
      */
-    async update(id: string, data: Partial<Product> & { updatedBy: string }): Promise<Product> {
+    override async update(id: string | number, data: Partial<Product>): Promise<boolean> {
         // First, check if the product exists
         const existingProduct = await this.findById(id);
 
@@ -305,8 +328,8 @@ export class ProductRepository extends BaseRepository<Product> {
         }
 
         // Build the update query dynamically
-        const updateFields = [];
-        const params = [];
+        const updateFields: string[] = [];
+        const params: any[] = [];
 
         if (data.name !== undefined) {
             updateFields.push('name = ?');
@@ -323,9 +346,29 @@ export class ProductRepository extends BaseRepository<Product> {
             params.push(data.price);
         }
 
-        if (data.category?.id !== undefined) {
+        if (data.compare_at_price !== undefined) {
+            updateFields.push('compare_at_price = ?');
+            params.push(data.compare_at_price);
+        }
+
+        if (data.cost_price !== undefined) {
+            updateFields.push('cost_price = ?');
+            params.push(data.cost_price);
+        }
+
+        if (data.weight !== undefined) {
+            updateFields.push('weight = ?');
+            params.push(data.weight);
+        }
+
+        if (data.weight_unit !== undefined) {
+            updateFields.push('weight_unit = ?');
+            params.push(data.weight_unit);
+        }
+
+        if (data.categories && data.categories.length > 0) {
             updateFields.push('category_id = ?');
-            params.push(data.category.id);
+            params.push(data.categories[0].id);
         }
 
         if (data.sku !== undefined) {
@@ -333,9 +376,14 @@ export class ProductRepository extends BaseRepository<Product> {
             params.push(data.sku);
         }
 
-        if (data.stockQuantity !== undefined) {
-            updateFields.push('stock_quantity = ?');
-            params.push(data.stockQuantity);
+        if (data.featured !== undefined) {
+            updateFields.push('featured = ?');
+            params.push(data.featured ? 1 : 0);
+        }
+
+        if (data.is_active !== undefined) {
+            updateFields.push('is_active = ?');
+            params.push(data.is_active ? 1 : 0);
         }
 
         if (data.images !== undefined) {
@@ -343,23 +391,9 @@ export class ProductRepository extends BaseRepository<Product> {
             params.push(JSON.stringify(data.images));
         }
 
-        if (data.attributes !== undefined) {
-            updateFields.push('attributes = ?');
-            params.push(JSON.stringify(data.attributes));
-        }
-
-        if (data.isActive !== undefined) {
-            updateFields.push('is_active = ?');
-            params.push(data.isActive ? 1 : 0);
-        }
-
-        // Add common update fields
-        updateFields.push('updated_by = ?');
-        params.push(data.updatedBy);
-
+        // Add common update field - updated_at
         updateFields.push('updated_at = ?');
-        const now = new Date().toISOString();
-        params.push(now);
+        params.push(Date.now());
 
         // Add product ID to params
         params.push(id);
@@ -371,16 +405,8 @@ export class ProductRepository extends BaseRepository<Product> {
     `;
 
         try {
-            await this.db.prepare(query).bind(...params).run();
-
-            // Fetch the updated product to return
-            const updatedProduct = await this.findById(id);
-
-            if (!updatedProduct) {
-                throw new Error('Failed to update product');
-            }
-
-            return updatedProduct;
+            const result = await this.db.prepare(query).bind(...params).run();
+            return result.success;
         } catch (error) {
             console.error('Error updating product:', error);
             throw new Error(`Failed to update product with ID ${id}`);
@@ -390,7 +416,7 @@ export class ProductRepository extends BaseRepository<Product> {
     /**
      * Delete a product (soft delete)
      */
-    async delete(id: string): Promise<void> {
+    override async delete(id: string | number): Promise<boolean> {
         // Soft delete by setting is_active = 0
         const query = `
       UPDATE products
@@ -398,14 +424,99 @@ export class ProductRepository extends BaseRepository<Product> {
       WHERE id = ?
     `;
 
-        const now = new Date().toISOString();
+        const now = Date.now();
 
         try {
-            await this.db.prepare(query).bind(now, id).run();
+            const result = await this.db.prepare(query).bind(now, id).run();
+            return result.success;
         } catch (error) {
             console.error('Error deleting product:', error);
             throw new Error(`Failed to delete product with ID ${id}`);
         }
+    }
+
+    /**
+     * Find a product by its ID (backward compatibility method)
+     * @param id Product ID
+     * @returns Product or null if not found
+     */
+    async findProductById(id: number): Promise<Product | null> {
+        return this.findById(id);
+    }
+
+    /**
+     * Create a new product (backward compatibility method)
+     * @param product Product data
+     * @returns ID of the created product
+     */
+    async createProduct(product: Omit<Product, 'id'>): Promise<number> {
+        return this.create(product);
+    }
+
+    /**
+     * Update an existing product (backward compatibility method)
+     * @param product Product data with ID
+     * @returns True if update was successful
+     */
+    async updateProduct(product: Product): Promise<boolean> {
+        if (!product.id) {
+            throw new Error('Product ID is required for update');
+        }
+        return this.update(product.id, product);
+    }
+
+    /**
+     * Delete a product (backward compatibility method)
+     * @param id Product ID
+     * @returns True if deletion was successful
+     */
+    async deleteProduct(id: number): Promise<boolean> {
+        return this.delete(id);
+    }
+
+    /**
+     * Map a database product row to a Product object
+     */
+    private mapDBProductToProduct(row: DBProduct): Product {
+        // Parse images from JSON if present
+        let images: ProductImage[] = [];
+        if (row.images) {
+            try {
+                const parsedImages = JSON.parse(row.images);
+                if (Array.isArray(parsedImages)) {
+                    images = parsedImages;
+                }
+            } catch (e) {
+                console.error('Error parsing product images:', e);
+            }
+        }
+
+        // Create and return a properly formatted Product object
+        return {
+            id: row.id,
+            sku: row.sku,
+            name: row.name,
+            description: row.description || undefined,
+            price: row.price,
+            compare_at_price: row.compare_at_price || undefined,
+            cost_price: row.cost_price || undefined,
+            weight: row.weight || undefined,
+            weight_unit: row.weight_unit || undefined,
+            featured: Boolean(row.featured),
+            is_active: Boolean(row.is_active),
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            categories: row.category_id && row.categoryName ? [
+                {
+                    id: row.category_id,
+                    name: row.categoryName,
+                    is_active: true, // Assume active since it's joined
+                    created_at: row.created_at, // Use product's created_at as fallback
+                    updated_at: row.updated_at, // Use product's updated_at as fallback
+                }
+            ] : [],
+            images: images,
+        };
     }
 
     /**
@@ -415,11 +526,11 @@ export class ProductRepository extends BaseRepository<Product> {
     private sanitizeColumn(column: string): string {
         // White list of allowed columns
         const allowedColumns = [
-            'id', 'name', 'price', 'sku', 'stock_quantity',
+            'id', 'name', 'price', 'sku', 'featured', 'is_active',
             'created_at', 'updated_at', 'category_id'
         ];
 
-        // Default to createdAt if column is not in the whitelist
+        // Default to created_at if column is not in the whitelist
         return allowedColumns.includes(column) ? column : 'created_at';
     }
 }

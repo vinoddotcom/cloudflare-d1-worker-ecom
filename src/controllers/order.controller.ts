@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { OrderRepository } from '../data/repositories/order.repository';
 import { PaymentRepository } from '../data/repositories/payment.repository';
 import { InvoiceRepository } from '../data/repositories/invoice.repository';
+import { OrderStatus } from '../models/order.model';
 
 /**
  * Controller for order-related operations
@@ -42,25 +43,39 @@ export class OrderController {
                 return validationResult;
             }
 
-            const data = await request.json();
+            const data = await request.json() as unknown;
             const userId = request.userId;
+
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
+
+            // Since validation passed, we can safely cast the body
+            const typedData = data as {
+                cartId: string;
+                shippingAddressId: number;
+                billingAddressId: number;
+                shippingMethod: string;
+                paymentMethod: string;
+                notes?: string;
+            };
 
             // Create order from cart
             const order = await this.orderRepository.createFromCart({
                 userId,
-                cartId: data.cartId,
-                shippingAddressId: data.shippingAddressId,
-                billingAddressId: data.billingAddressId,
-                shippingMethod: data.shippingMethod,
-                paymentMethod: data.paymentMethod,
-                notes: data.notes,
+                cartId: typedData.cartId,
+                shippingAddressId: typedData.shippingAddressId,
+                billingAddressId: typedData.billingAddressId,
+                shippingMethod: typedData.shippingMethod,
+                paymentMethod: typedData.paymentMethod,
+                notes: typedData.notes,
             });
 
             // Create initial payment record
             await this.paymentRepository.createPayment({
                 orderId: order.id,
                 amount: order.total_amount,
-                paymentMethod: data.paymentMethod,
+                paymentMethod: typedData.paymentMethod,
                 status: 'pending',
             });
 
@@ -84,15 +99,25 @@ export class OrderController {
      */
     async getOrderById(request: AuthRequest): Promise<Response> {
         try {
-            const orderId = parseInt(request.params?.id);
+            const id = request.params?.id;
+            if (!id) {
+                return errorResponse('Order ID is required', 400);
+            }
+
+            const orderId = parseInt(id);
             if (isNaN(orderId)) {
                 return errorResponse('Invalid order ID', 400);
+            }
+
+            const userId = request.userId;
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
             }
 
             const order = await this.orderRepository.getOrderById(orderId);
 
             // Check if the order belongs to the user (unless the user is an admin)
-            if (order.user_id !== request.userId && request.userRole !== 'admin') {
+            if (order.user_id !== userId && request.userRole !== 'admin') {
                 return errorResponse('Unauthorized', 403);
             }
 
@@ -108,11 +133,16 @@ export class OrderController {
      */
     async getUserOrders(request: AuthRequest): Promise<Response> {
         try {
+            const userId = request.userId;
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
+
             const url = new URL(request.url);
             const page = parseInt(url.searchParams.get('page') || '1');
             const limit = parseInt(url.searchParams.get('limit') || '10');
 
-            const result = await this.orderRepository.getUserOrders(request.userId, page, limit);
+            const result = await this.orderRepository.getUserOrders(userId, page, limit);
 
             return successResponse(result);
         } catch (error) {
@@ -166,18 +196,34 @@ export class OrderController {
                 return validationResult;
             }
 
-            const orderId = parseInt(request.params?.id);
+            const id = request.params?.id;
+            if (!id) {
+                return errorResponse('Order ID is required', 400);
+            }
+
+            const orderId = parseInt(id);
             if (isNaN(orderId)) {
                 return errorResponse('Invalid order ID', 400);
             }
 
-            const data = await request.json();
+            const userId = request.userId;
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
+
+            const data = await request.json() as unknown;
+
+            // Since validation passed, we can safely cast the body
+            const typedData = data as {
+                status: OrderStatus;
+                notes?: string;
+            };
 
             const updatedOrder = await this.orderRepository.updateOrderStatus(
                 orderId,
-                data.status,
-                request.userId,
-                data.notes
+                typedData.status,
+                userId,
+                typedData.notes
             );
 
             return successResponse(updatedOrder);
@@ -192,16 +238,26 @@ export class OrderController {
      */
     async cancelOrder(request: AuthRequest): Promise<Response> {
         try {
-            const orderId = parseInt(request.params?.id);
+            const id = request.params?.id;
+            if (!id) {
+                return errorResponse('Order ID is required', 400);
+            }
+
+            const orderId = parseInt(id);
             if (isNaN(orderId)) {
                 return errorResponse('Invalid order ID', 400);
+            }
+
+            const userId = request.userId;
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
             }
 
             // Get the order to check if it can be cancelled
             const order = await this.orderRepository.getOrderById(orderId);
 
             // Check if the order belongs to the user (unless the user is an admin)
-            if (order.user_id !== request.userId && request.userRole !== 'admin') {
+            if (order.user_id !== userId && request.userRole !== 'admin') {
                 return errorResponse('Unauthorized', 403);
             }
 
@@ -213,8 +269,8 @@ export class OrderController {
             // Cancel the order
             const updatedOrder = await this.orderRepository.updateOrderStatus(
                 orderId,
-                'cancelled',
-                request.userId,
+                'cancelled' as OrderStatus,
+                userId,
                 'Order cancelled by ' + (request.userRole === 'admin' ? 'admin' : 'customer')
             );
 
@@ -230,16 +286,26 @@ export class OrderController {
      */
     async generateInvoice(request: AuthRequest): Promise<Response> {
         try {
-            const orderId = parseInt(request.params?.id);
+            const id = request.params?.id;
+            if (!id) {
+                return errorResponse('Order ID is required', 400);
+            }
+
+            const orderId = parseInt(id);
             if (isNaN(orderId)) {
                 return errorResponse('Invalid order ID', 400);
+            }
+
+            const userId = request.userId;
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
             }
 
             // Get the order to check access
             const order = await this.orderRepository.getOrderById(orderId);
 
             // Check if the order belongs to the user (unless the user is an admin)
-            if (order.user_id !== request.userId && request.userRole !== 'admin') {
+            if (order.user_id !== userId && request.userRole !== 'admin') {
                 return errorResponse('Unauthorized', 403);
             }
 

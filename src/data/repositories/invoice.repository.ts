@@ -3,68 +3,127 @@ import { BaseRepository } from './base.repository';
 import { Invoice, InvoiceStatus } from '../../models/order.model';
 
 /**
+ * Interface for the database representation of an order
+ */
+interface DBOrder {
+  id: number;
+  order_number: string;
+  user_id: string;
+  status: string;
+  subtotal: number;
+  shipping_fee: number;
+  tax_amount: number;
+  total_amount: number;
+  shipping_address_id: number;
+  billing_address_id: number;
+  shipping_method: string;
+  payment_method: string;
+  notes: string | null;
+  user_email?: string;
+  user_first_name?: string;
+  user_last_name?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * Interface for the database representation of an invoice
+ */
+interface DBInvoice {
+  id: number;
+  invoice_number: string;
+  order_id: number;
+  issue_date: number;
+  due_date: number;
+  status: string;
+  amount: number;
+  tax_amount: number;
+  total_amount: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * Interface for the database representation of an address
+ */
+interface DBAddress {
+  id: number;
+  user_id: string;
+  address_type: string;
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  is_default: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
  * Repository for invoice-related database operations
  */
 export class InvoiceRepository extends BaseRepository<Invoice> {
-    constructor(env: Env) {
-        super(env.DB, 'invoices');
-    }
+  constructor(env: Env) {
+    super(env.DB, 'invoices');
+  }
 
-    /**
-     * Generate a unique invoice number
-     * Format: INV-YYYYMMDD-XXXXX (where XXXXX is a random 5-digit number)
-     */
-    private generateInvoiceNumber(): string {
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const random = Math.floor(Math.random() * 90000) + 10000; // 5-digit number
-        return `INV-${year}${month}${day}-${random}`;
-    }
+  /**
+   * Generate a unique invoice number
+   * Format: INV-YYYYMMDD-XXXXX (where XXXXX is a random 5-digit number)
+   */
+  private generateInvoiceNumber(): string {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const random = Math.floor(Math.random() * 90000) + 10000; // 5-digit number
+    return `INV-${year}${month}${day}-${random}`;
+  }
 
-    /**
-     * Create a new invoice for an order
-     * @param data Invoice data
-     * @returns The created invoice
-     */
-    async createInvoice(data: {
-        orderId: number;
-        issueDate?: Date;
-        dueDate?: Date;
-    }): Promise<Invoice> {
-        try {
-            const now = new Date();
-            const invoiceNumber = this.generateInvoiceNumber();
+  /**
+   * Create a new invoice for an order
+   * @param data Invoice data
+   * @returns The created invoice
+   */
+  async createInvoice(data: {
+    orderId: number;
+    issueDate?: Date;
+    dueDate?: Date;
+  }): Promise<Invoice> {
+    try {
+      const now = new Date();
+      const invoiceNumber = this.generateInvoiceNumber();
 
-            const {
-                orderId,
-                issueDate = now,
-                dueDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // Default: 30 days from now
-            } = data;
+      const {
+        orderId,
+        issueDate = now,
+        dueDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // Default: 30 days from now
+      } = data;
 
-            // Check if invoice already exists for this order
-            const existingInvoice = await this.db.prepare(`
+      // Check if invoice already exists for this order
+      const existingInvoice = await this.db.prepare(`
         SELECT id FROM invoices WHERE order_id = ?
       `).bind(orderId).first();
 
-            if (existingInvoice) {
-                throw new Error(`Invoice already exists for order ${orderId}`);
-            }
+      if (existingInvoice) {
+        throw new Error(`Invoice already exists for order ${orderId}`);
+      }
 
-            // Get order information for amount details
-            const order = await this.db.prepare(`
+      // Get order information for amount details
+      const order = await this.db.prepare(`
         SELECT subtotal, shipping_fee, tax_amount, total_amount
         FROM orders
         WHERE id = ?
-      `).bind(orderId).first();
+      `).bind(orderId).first<Pick<DBOrder, 'subtotal' | 'shipping_fee' | 'tax_amount' | 'total_amount'>>();
 
-            if (!order) {
-                throw new Error(`Order with ID ${orderId} not found`);
-            }
+      if (!order) {
+        throw new Error(`Order with ID ${orderId} not found`);
+      }
 
-            // Create invoice
-            const query = `
+      // Create invoice
+      const query = `
         INSERT INTO invoices (
           invoice_number,
           order_id,
@@ -79,114 +138,114 @@ export class InvoiceRepository extends BaseRepository<Invoice> {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
-            const nowTimestamp = Math.floor(now.getTime() / 1000);
-            const issueDateTimestamp = Math.floor(issueDate.getTime() / 1000);
-            const dueDateTimestamp = Math.floor(dueDate.getTime() / 1000);
+      const nowTimestamp = Math.floor(now.getTime() / 1000);
+      const issueDateTimestamp = Math.floor(issueDate.getTime() / 1000);
+      const dueDateTimestamp = Math.floor(dueDate.getTime() / 1000);
 
-            const result = await this.db.prepare(query).bind(
-                invoiceNumber,
-                orderId,
-                issueDateTimestamp,
-                dueDateTimestamp,
-                'issued', // Default status
-                order.subtotal + order.shipping_fee, // Amount excluding tax
-                order.tax_amount,
-                order.total_amount,
-                nowTimestamp,
-                nowTimestamp
-            ).run();
+      const result = await this.db.prepare(query).bind(
+        invoiceNumber,
+        orderId,
+        issueDateTimestamp,
+        dueDateTimestamp,
+        'issued', // Default status
+        order.subtotal + order.shipping_fee, // Amount excluding tax
+        order.tax_amount,
+        order.total_amount,
+        nowTimestamp,
+        nowTimestamp
+      ).run();
 
-            if (!result.success) {
-                throw new Error('Failed to create invoice');
-            }
+      if (!result.success) {
+        throw new Error('Failed to create invoice');
+      }
 
-            // Return the created invoice
-            return this.getInvoiceByOrderId(orderId);
-        } catch (error) {
-            console.error('Error creating invoice:', error);
-            throw error;
-        }
+      // Return the created invoice
+      return this.getInvoiceByOrderId(orderId);
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Get invoice by order ID
-     * @param orderId Order ID
-     * @returns Invoice information
-     */
-    async getInvoiceByOrderId(orderId: number): Promise<Invoice> {
-        try {
-            const invoice = await this.db.prepare(`
+  /**
+   * Get invoice by order ID
+   * @param orderId Order ID
+   * @returns Invoice information
+   */
+  async getInvoiceByOrderId(orderId: number): Promise<Invoice> {
+    try {
+      const invoice = await this.db.prepare(`
         SELECT * FROM invoices WHERE order_id = ?
-      `).bind(orderId).first();
+      `).bind(orderId).first<DBInvoice>();
 
-            if (!invoice) {
-                throw new Error(`No invoice found for order ${orderId}`);
-            }
+      if (!invoice) {
+        throw new Error(`No invoice found for order ${orderId}`);
+      }
 
-            return invoice;
-        } catch (error) {
-            console.error('Error fetching invoice:', error);
-            throw error;
-        }
+      return this.mapDBInvoiceToInvoice(invoice);
+    } catch (error) {
+      console.error('Error fetching invoice:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Update invoice status
-     * @param invoiceId Invoice ID
-     * @param status New invoice status
-     * @returns Updated invoice
-     */
-    async updateInvoiceStatus(
-        invoiceId: number,
-        status: InvoiceStatus
-    ): Promise<Invoice> {
-        try {
-            const now = Math.floor(Date.now() / 1000);
+  /**
+   * Update invoice status
+   * @param invoiceId Invoice ID
+   * @param status New invoice status
+   * @returns Updated invoice
+   */
+  async updateInvoiceStatus(
+    invoiceId: number,
+    status: InvoiceStatus
+  ): Promise<Invoice> {
+    try {
+      const now = Math.floor(Date.now() / 1000);
 
-            // Update invoice status
-            await this.db.prepare(`
+      // Update invoice status
+      await this.db.prepare(`
         UPDATE invoices
         SET status = ?, updated_at = ?
         WHERE id = ?
       `).bind(status, now, invoiceId.toString()).run();
 
-            // If invoice is marked as paid, update the payment status if it exists
-            if (status === 'paid') {
-                const invoice = await this.findById(invoiceId.toString());
-                if (invoice) {
-                    await this.db.prepare(`
+      // If invoice is marked as paid, update the payment status if it exists
+      if (status === 'paid') {
+        const invoice = await this.findById(invoiceId.toString());
+        if (invoice) {
+          await this.db.prepare(`
             UPDATE payments
             SET status = 'completed', updated_at = ?
             WHERE order_id = ? AND status = 'pending'
           `).bind(now, invoice.order_id).run();
-                }
-            }
-
-            // Return the updated invoice
-            return this.findById(invoiceId.toString()) as Promise<Invoice>;
-        } catch (error) {
-            console.error('Error updating invoice status:', error);
-            throw error;
         }
+      }
+
+      // Return the updated invoice
+      return this.findById(invoiceId.toString()) as Promise<Invoice>;
+    } catch (error) {
+      console.error('Error updating invoice status:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Generate a PDF invoice
-     * In a real enterprise system, this would generate a proper PDF
-     * For this example, we return HTML content that could be converted to PDF
-     * @param invoiceId Invoice ID
-     * @returns HTML content for the invoice
-     */
-    async generateInvoicePdf(invoiceId: number): Promise<string> {
-        try {
-            // Get invoice with related data
-            const invoice = await this.findById(invoiceId.toString());
-            if (!invoice) {
-                throw new Error(`Invoice with ID ${invoiceId} not found`);
-            }
+  /**
+   * Generate a PDF invoice
+   * In a real enterprise system, this would generate a proper PDF
+   * For this example, we return HTML content that could be converted to PDF
+   * @param invoiceId Invoice ID
+   * @returns HTML content for the invoice
+   */
+  async generateInvoicePdf(invoiceId: number): Promise<string> {
+    try {
+      // Get invoice with related data
+      const invoice = await this.findById(invoiceId.toString());
+      if (!invoice) {
+        throw new Error(`Invoice with ID ${invoiceId} not found`);
+      }
 
-            // Get order details
-            const order = await this.db.prepare(`
+      // Get order details
+      const order = await this.db.prepare(`
         SELECT 
           o.*,
           u.email as user_email,
@@ -195,34 +254,40 @@ export class InvoiceRepository extends BaseRepository<Invoice> {
         FROM orders o
         JOIN users u ON o.user_id = u.id
         WHERE o.id = ?
-      `).bind(invoice.order_id).first();
+      `).bind(invoice.order_id).first<DBOrder>();
 
-            if (!order) {
-                throw new Error(`Order with ID ${invoice.order_id} not found`);
-            }
+      if (!order) {
+        throw new Error(`Order with ID ${invoice.order_id} not found`);
+      }
 
-            // Get order items
-            const items = await this.db.prepare(`
+      // Get order items
+      const items = await this.db.prepare(`
         SELECT * FROM order_items WHERE order_id = ?
       `).bind(invoice.order_id).all();
 
-            // Get addresses
-            const addresses = await this.db.prepare(`
+      // Ensure we have results
+      const itemResults = items.results || [];
+
+      // Get addresses
+      const addresses = await this.db.prepare(`
         SELECT 
           a.*,
           CASE WHEN a.id = ? THEN 'shipping' WHEN a.id = ? THEN 'billing' END as address_type
         FROM addresses a
         WHERE a.id IN (?, ?)
       `).bind(
-                order.shipping_address_id,
-                order.billing_address_id,
-                order.shipping_address_id,
-                order.billing_address_id
-            ).all();
+        order.shipping_address_id,
+        order.billing_address_id,
+        order.shipping_address_id,
+        order.billing_address_id
+      ).all();
 
-            // In a real system, you would use a proper template engine
-            // Here we generate simple HTML
-            const html = `
+      // Ensure we have results
+      const addressResults = addresses.results || [];
+
+      // In a real system, you would use a proper template engine
+      // Here we generate simple HTML
+      const html = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -264,7 +329,7 @@ export class InvoiceRepository extends BaseRepository<Invoice> {
                 <p>
                   ${order.user_first_name} ${order.user_last_name}<br>
                   ${order.user_email}<br>
-                  ${this.formatAddress(addresses.results.find((a: any) => a.address_type === 'billing'))}
+                                    ${this.formatAddress(addressResults.find((a: any) => a.address_type === 'shipping'))}
                 </p>
               </div>
               <div class="invoice-info">
@@ -290,7 +355,7 @@ export class InvoiceRepository extends BaseRepository<Invoice> {
                   </tr>
                 </thead>
                 <tbody>
-                  ${items.results.map((item: any) => `
+                  ${(items.results || []).map((item: any) => `
                     <tr>
                       <td>${item.product_name} - ${item.variant_name}</td>
                       <td>${item.sku}</td>
@@ -333,24 +398,45 @@ export class InvoiceRepository extends BaseRepository<Invoice> {
         </html>
       `;
 
-            return html;
-        } catch (error) {
-            console.error('Error generating invoice PDF:', error);
-            throw error;
-        }
+      return html;
+    } catch (error) {
+      console.error('Error generating invoice PDF:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Format an address object into a readable string
-     */
-    private formatAddress(address: any): string {
-        if (!address) return 'Address not available';
+  /**
+   * Format an address object into a readable string
+   */
+  private formatAddress(address: any): string {
+    if (!address) return 'Address not available';
 
-        return `
+    return `
       ${address.address_line1}<br>
       ${address.address_line2 ? address.address_line2 + '<br>' : ''}
       ${address.city}, ${address.state} ${address.postal_code}<br>
       ${address.country}
     `.trim();
-    }
+  }
+
+  /**
+   * Map DBInvoice to Invoice model
+   * @param dbInvoice Database invoice object
+   * @returns Mapped Invoice model
+   */
+  private mapDBInvoiceToInvoice(dbInvoice: DBInvoice): Invoice {
+    return {
+      id: dbInvoice.id,
+      invoice_number: dbInvoice.invoice_number,
+      order_id: dbInvoice.order_id,
+      issue_date: dbInvoice.issue_date,
+      due_date: dbInvoice.due_date,
+      status: dbInvoice.status as InvoiceStatus,
+      amount: dbInvoice.amount,
+      tax_amount: dbInvoice.tax_amount,
+      total_amount: dbInvoice.total_amount,
+      created_at: dbInvoice.created_at,
+      updated_at: dbInvoice.updated_at
+    };
+  }
 }

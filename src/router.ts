@@ -14,6 +14,10 @@ import { WebhookController } from './controllers/webhook.controller';
 import { ImageController } from './controllers/image.controller';
 import { AddressController } from './controllers/address.controller';
 import { BlogController } from './controllers/blog.controller';
+import { ProductAttributeController } from './controllers/product-attribute.controller';
+import { ProductVariantController } from './controllers/product-variant.controller';
+import { InventoryController } from './controllers/inventory.controller';
+import { ProductCategoryController } from './controllers/product-category.controller';
 
 // Create a new router
 const router = Router<Request>();
@@ -36,6 +40,10 @@ export function setupApiRoutes(env: Env): Router<Request> {
     const imageController = new ImageController(env);
     const addressController = new AddressController(env);
     const blogController = new BlogController(env);
+    const productAttributeController = new ProductAttributeController(env);
+    const inventoryController = new InventoryController(env);
+    const productVariantController = new ProductVariantController(env);
+    const productCategoryController = new ProductCategoryController(env);
 
     // Apply global middleware
     router.all('*', requestLogger());
@@ -156,6 +164,29 @@ export function setupApiRoutes(env: Env): Router<Request> {
     router.put('/api/v1/blog/posts/:id', authenticate(env), authorize(['admin']), (request: IRequest) => blogController.updatePost(request as AuthRequest));
     router.delete('/api/v1/blog/posts/:id', authenticate(env), authorize(['admin']), (request: IRequest) => blogController.deletePost(request as AuthRequest));
     router.put('/api/v1/blog/posts/:id/status', authenticate(env), authorize(['admin']), (request: IRequest) => blogController.updatePostStatus(request as AuthRequest));
+
+    // Product Attributes routes
+    router.get('/api/v1/admin/product-attributes', authenticate(env), authorize(['admin']), (request: IRequest) => productAttributeController.getAllAttributes(request as AuthRequest));
+    router.get('/api/v1/admin/product-attributes/:id', authenticate(env), authorize(['admin']), (request: IRequest) => productAttributeController.getAttribute(request as AuthRequest));
+    router.post('/api/v1/admin/product-attributes', authenticate(env), authorize(['admin']), (request: IRequest) => productAttributeController.createAttribute(request as AuthRequest));
+    router.put('/api/v1/admin/product-attributes/:id', authenticate(env), authorize(['admin']), (request: IRequest) => productAttributeController.updateAttribute(request as AuthRequest));
+    router.delete('/api/v1/admin/product-attributes/:id', authenticate(env), authorize(['admin']), (request: IRequest) => productAttributeController.deleteAttribute(request as AuthRequest));
+
+    // Inventory Management routes
+    router.get('/api/v1/admin/inventory', authenticate(env), authorize(['admin']), (request: IRequest) => inventoryController.getAllInventory(request as AuthRequest));
+    router.put('/api/v1/admin/inventory/:variantId', authenticate(env), authorize(['admin']), (request: IRequest) => inventoryController.updateInventory(request as AuthRequest));
+    router.post('/api/v1/admin/inventory/bulk', authenticate(env), authorize(['admin']), (request: IRequest) => inventoryController.bulkUpdateInventory(request as AuthRequest));
+
+    // Product Variants routes
+    router.get('/api/v1/admin/products/:productId/variants', authenticate(env), authorize(['admin']), (request: IRequest) => productVariantController.getProductVariants(request as AuthRequest));
+    router.post('/api/v1/admin/products/:productId/variants', authenticate(env), authorize(['admin']), (request: IRequest) => productVariantController.createProductVariant(request as AuthRequest));
+    router.put('/api/v1/admin/products/:productId/variants/:id', authenticate(env), authorize(['admin']), (request: IRequest) => productVariantController.updateProductVariant(request as AuthRequest));
+    router.delete('/api/v1/admin/products/:productId/variants/:id', authenticate(env), authorize(['admin']), (request: IRequest) => productVariantController.deleteProductVariant(request as AuthRequest));
+
+    // Product Categories Admin routes
+    router.post('/api/v1/admin/product-categories', authenticate(env), authorize(['admin']), (request: IRequest) => productCategoryController.createProductCategory(request as AuthRequest));
+    router.put('/api/v1/admin/product-categories/:id', authenticate(env), authorize(['admin']), (request: IRequest) => productCategoryController.updateProductCategory(request as AuthRequest));
+    router.delete('/api/v1/admin/product-categories/:id', authenticate(env), authorize(['admin']), (request: IRequest) => productCategoryController.deleteProductCategory(request as AuthRequest));
 
     return router;
 }

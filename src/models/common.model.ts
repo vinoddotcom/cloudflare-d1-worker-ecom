@@ -54,8 +54,8 @@ export interface Env {
  */
 export interface BaseModel {
     id: string | number;
-    created_at: number; // Unix timestamp
-    updated_at?: number; // Unix timestamp
+    created_at?: number | string; // Unix timestamp or ISO string
+    updated_at?: number | string; // Unix timestamp or ISO string
 }
 
 /**

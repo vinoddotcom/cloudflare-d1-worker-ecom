@@ -117,7 +117,10 @@ export class UserController {
         }
 
         // Update user in database
-        const success = await this.userRepository.updateUser(userId, validatedData);
+        const success = await this.userRepository.updateUser(userId, {
+            ...validatedData,
+            phone: validatedData.phone || undefined
+        });
         if (!success) {
             throw new Error('Failed to update user');
         }

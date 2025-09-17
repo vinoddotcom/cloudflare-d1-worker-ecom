@@ -1,6 +1,7 @@
 import { Env } from '../../models/common.model';
 import { BaseRepository } from './base.repository';
-import { Order, OrderItem, OrderStatus, OrderStatusHistory } from '../../models/order.model';
+import { Order, OrderItem, OrderStatus, OrderStatusHistory, Payment, Invoice } from '../../models/order.model';
+import { Address } from '../../models/user.model';
 
 /**
  * Repository for order-related database operations
@@ -70,9 +71,20 @@ export class OrderRepository extends BaseRepository<Order> {
         WHERE c.id = ? AND c.user_id = ?
       `;
 
+            interface CartItem {
+                cart_id: string;
+                cart_item_id: number;
+                product_variant_id: number;
+                quantity: number;
+                price: number;
+                product_name: string;
+                variant_name: string;
+                sku: string;
+            }
+
             const cartItems = await this.db.prepare(cartQuery)
                 .bind(cartId, userId)
-                .all();
+                .all<CartItem>();
 
             if (!cartItems.results || cartItems.results.length === 0) {
                 throw new Error('Cart is empty');
@@ -80,7 +92,7 @@ export class OrderRepository extends BaseRepository<Order> {
 
             // Calculate order totals
             const items = cartItems.results;
-            const subtotal = items.reduce((sum: number, item: any) => {
+            const subtotal = items.reduce((sum: number, item) => {
                 return sum + (item.price * item.quantity);
             }, 0);
 
@@ -90,7 +102,7 @@ export class OrderRepository extends BaseRepository<Order> {
       `;
             const shippingResult = await this.db.prepare(shippingMethodQuery)
                 .bind(shippingMethod)
-                .first();
+                .first<{ base_price: number }>();
 
             if (!shippingResult) {
                 throw new Error('Invalid shipping method');
@@ -147,7 +159,8 @@ export class OrderRepository extends BaseRepository<Order> {
                 throw new Error('Failed to create order');
             }
 
-            const orderId = orderResult.lastRowId;
+            // Cast to D1ExecResult to access lastRowId
+            const orderId = (orderResult as unknown as { lastRowId: number }).lastRowId;
 
             // Insert order items
             for (const item of items) {
@@ -190,7 +203,8 @@ export class OrderRepository extends BaseRepository<Order> {
                     item.quantity
                 ).run();
 
-                if (inventoryResult.changes === 0) {
+                // Cast to D1ExecResult to access changes property
+                if ((inventoryResult as unknown as { changes: number }).changes === 0) {
                     throw new Error(`Insufficient inventory for product variant ${item.product_variant_id}`);
                 }
             }
@@ -258,7 +272,35 @@ export class OrderRepository extends BaseRepository<Order> {
         WHERE o.id = ?
       `;
 
-            const order = await this.db.prepare(orderQuery).bind(orderId).first();
+            const order = await this.db.prepare(orderQuery).bind(orderId).first<{
+                id: number;
+                order_number: string;
+                user_id: string;
+                status: OrderStatus;
+                subtotal: number;
+                shipping_fee: number;
+                tax_amount: number;
+                total_amount: number;
+                shipping_address_id: number;
+                billing_address_id: number;
+                shipping_method: string;
+                payment_method: string;
+                notes: string | null;
+                created_at: number;
+                updated_at: number;
+                shipping_address_line1: string;
+                shipping_address_line2: string | null;
+                shipping_city: string;
+                shipping_state: string;
+                shipping_postal_code: string;
+                shipping_country: string;
+                billing_address_line1: string;
+                billing_address_line2: string | null;
+                billing_city: string;
+                billing_state: string;
+                billing_postal_code: string;
+                billing_country: string;
+            }>();
 
             if (!order) {
                 throw new Error(`Order with ID ${orderId} not found`);
@@ -269,8 +311,8 @@ export class OrderRepository extends BaseRepository<Order> {
         SELECT * FROM order_items WHERE order_id = ?
       `;
 
-            const itemsResult = await this.db.prepare(itemsQuery).bind(orderId).all();
-            const items = itemsResult.results;
+            const itemsResult = await this.db.prepare(itemsQuery).bind(orderId).all<OrderItem>();
+            const items = itemsResult.results || [];
 
             // Get order status history
             const historyQuery = `
@@ -279,30 +321,34 @@ export class OrderRepository extends BaseRepository<Order> {
         ORDER BY created_at DESC
       `;
 
-            const historyResult = await this.db.prepare(historyQuery).bind(orderId).all();
-            const statusHistory = historyResult.results;
+            const historyResult = await this.db.prepare(historyQuery).bind(orderId).all<OrderStatusHistory>();
+            const statusHistory = historyResult.results || [];
 
             // Get payment information
             const paymentQuery = `
         SELECT * FROM payments WHERE order_id = ?
       `;
 
-            const paymentResult = await this.db.prepare(paymentQuery).bind(orderId).all();
-            const payments = paymentResult.results;
+            const paymentResult = await this.db.prepare(paymentQuery).bind(orderId).all<Payment>();
+            const payments = paymentResult.results || [];
 
             // Get invoice information
             const invoiceQuery = `
         SELECT * FROM invoices WHERE order_id = ?
       `;
 
-            const invoiceResult = await this.db.prepare(invoiceQuery).bind(orderId).all();
-            const invoices = invoiceResult.results;
+            const invoiceResult = await this.db.prepare(invoiceQuery).bind(orderId).all<Invoice>();
+            const invoices = invoiceResult.results || [];
 
             // Construct shipping address
-            const shippingAddress = {
+            const shippingAddress: Address = {
                 id: order.shipping_address_id,
+                user_id: order.user_id, // Add required field
+                address_type: 'shipping', // Add required field
+                is_default: false, // Add required field
+                created_at: order.created_at, // Add required field
                 address_line1: order.shipping_address_line1,
-                address_line2: order.shipping_address_line2,
+                address_line2: order.shipping_address_line2 || undefined,
                 city: order.shipping_city,
                 state: order.shipping_state,
                 postal_code: order.shipping_postal_code,
@@ -310,10 +356,14 @@ export class OrderRepository extends BaseRepository<Order> {
             };
 
             // Construct billing address
-            const billingAddress = {
+            const billingAddress: Address = {
                 id: order.billing_address_id,
+                user_id: order.user_id, // Add required field
+                address_type: 'billing', // Add required field
+                is_default: false, // Add required field
+                created_at: order.created_at, // Add required field
                 address_line1: order.billing_address_line1,
-                address_line2: order.billing_address_line2,
+                address_line2: order.billing_address_line2 || undefined,
                 city: order.billing_city,
                 state: order.billing_state,
                 postal_code: order.billing_postal_code,
@@ -321,7 +371,7 @@ export class OrderRepository extends BaseRepository<Order> {
             };
 
             // Combine everything into the order object
-            return {
+            const orderObj: Order = {
                 id: order.id,
                 order_number: order.order_number,
                 user_id: order.user_id,
@@ -334,16 +384,18 @@ export class OrderRepository extends BaseRepository<Order> {
                 billing_address_id: order.billing_address_id,
                 shipping_method: order.shipping_method,
                 payment_method: order.payment_method,
-                notes: order.notes,
+                notes: order.notes === null ? undefined : order.notes,
                 created_at: order.created_at,
                 updated_at: order.updated_at,
                 items: items,
                 shipping_address: shippingAddress,
                 billing_address: billingAddress,
                 status_history: statusHistory,
-                payment: payments[0],
-                invoice: invoices[0]
+                payment: payments.length > 0 ? payments[0] : undefined,
+                invoice: invoices.length > 0 ? invoices[0] : undefined
             };
+
+            return orderObj;
         } catch (error) {
             console.error('Error fetching order:', error);
             throw error;
@@ -379,9 +431,29 @@ export class OrderRepository extends BaseRepository<Order> {
         LIMIT ? OFFSET ?
       `;
 
+            type OrderQueryResult = {
+                id: number;
+                order_number: string;
+                user_id: string;
+                status: OrderStatus;
+                subtotal: number;
+                shipping_fee: number;
+                tax_amount: number;
+                total_amount: number;
+                shipping_address_id: number;
+                billing_address_id: number;
+                shipping_method: string;
+                payment_method: string;
+                notes: string | null;
+                created_at: number;
+                updated_at: number;
+                payment_status?: string;
+                invoice_number?: string;
+            };
+
             const ordersResult = await this.db.prepare(ordersQuery)
                 .bind(userId, limit, offset)
-                .all();
+                .all<OrderQueryResult>();
 
             // Get total count
             const countQuery = `
@@ -390,24 +462,25 @@ export class OrderRepository extends BaseRepository<Order> {
 
             const countResult = await this.db.prepare(countQuery)
                 .bind(userId)
-                .first();
+                .first<{ total: number }>();
 
-            const orders = await Promise.all(ordersResult.results.map(async (order: any) => {
+            const orders = await Promise.all((ordersResult.results || []).map(async (order) => {
                 // Get order items
                 const itemsQuery = `
           SELECT * FROM order_items WHERE order_id = ?
         `;
 
-                const itemsResult = await this.db.prepare(itemsQuery).bind(order.id).all();
+                const itemsResult = await this.db.prepare(itemsQuery).bind(order.id).all<OrderItem>();
 
                 return {
                     ...order,
-                    items: itemsResult.results,
+                    items: itemsResult.results || [],
+                    notes: order.notes === null ? undefined : order.notes
                 };
             }));
 
             return {
-                orders,
+                orders: orders as Order[],
                 total: countResult ? countResult.total : 0,
                 page,
                 limit
@@ -470,8 +543,13 @@ export class OrderRepository extends BaseRepository<Order> {
           SELECT product_variant_id, quantity FROM order_items WHERE order_id = ?
         `;
 
-                const itemsResult = await this.db.prepare(itemsQuery).bind(orderId).all();
-                const items = itemsResult.results;
+                interface OrderItemInventory {
+                    product_variant_id: number;
+                    quantity: number;
+                }
+
+                const itemsResult = await this.db.prepare(itemsQuery).bind(orderId).all<OrderItemInventory>();
+                const items = itemsResult.results || [];
 
                 for (const item of items) {
                     // Update inventory (increase stock)
@@ -520,7 +598,7 @@ export class OrderRepository extends BaseRepository<Order> {
         } = options;
 
         const offset = (page - 1) * limit;
-        const params = [];
+        const params: any[] = [];
 
         // Build query with filters
         let query = `
@@ -573,7 +651,7 @@ export class OrderRepository extends BaseRepository<Order> {
       WHERE 1=1
     `;
 
-        const countParams = [];
+        const countParams: any[] = [];
 
         // Add the same filters to count query
         if (status) {
@@ -597,19 +675,41 @@ export class OrderRepository extends BaseRepository<Order> {
             countParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
         }
 
+        interface OrderQueryResult {
+            id: number;
+            order_number: string;
+            user_id: string;
+            status: OrderStatus;
+            subtotal: number;
+            shipping_fee: number;
+            tax_amount: number;
+            total_amount: number;
+            shipping_address_id: number;
+            billing_address_id: number;
+            shipping_method: string;
+            payment_method: string;
+            notes: string | null;
+            created_at: number;
+            updated_at: number;
+            user_email: string;
+            user_first_name: string;
+            user_last_name: string;
+        }
+
         try {
             // Execute queries
-            const ordersResult = await this.db.prepare(query).bind(...params).all();
-            const countResult = await this.db.prepare(countQuery).bind(...countParams).first();
+            const ordersResult = await this.db.prepare(query).bind(...params).all<OrderQueryResult>();
+            const countResult = await this.db.prepare(countQuery).bind(...countParams).first<{ total: number }>();
 
             // Get order items for each order
-            const orders = await Promise.all(ordersResult.results.map(async (order: any) => {
+            const orders = await Promise.all((ordersResult.results || []).map(async (order) => {
                 const itemsQuery = `SELECT * FROM order_items WHERE order_id = ?`;
-                const itemsResult = await this.db.prepare(itemsQuery).bind(order.id).all();
+                const itemsResult = await this.db.prepare(itemsQuery).bind(order.id).all<OrderItem>();
 
                 return {
                     ...order,
-                    items: itemsResult.results,
+                    items: itemsResult.results || [],
+                    notes: order.notes === null ? undefined : order.notes,
                     user: {
                         id: order.user_id,
                         email: order.user_email,
@@ -620,7 +720,7 @@ export class OrderRepository extends BaseRepository<Order> {
             }));
 
             return {
-                orders,
+                orders: orders as unknown as Order[],  // Type assertion since we're adding user object
                 total: countResult?.total || 0,
                 page,
                 limit

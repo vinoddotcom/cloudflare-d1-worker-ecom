@@ -5,6 +5,7 @@ import { errorResponse, successResponse } from '../utils/response';
 import { validateRequest } from '../middleware/validator';
 import { z } from 'zod';
 import { CartRepository } from '../data/repositories/cart.repository';
+import { Cart, CartItem } from '../models/cart.model';
 
 /**
  * Controller for cart-related operations
@@ -23,6 +24,10 @@ export class CartController {
         try {
             // Get user ID from authenticated request
             const userId = request.userId;
+
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
 
             // Fetch the user's cart
             const cart = await this.cartRepository.getCartByUserId(userId);
@@ -46,17 +51,27 @@ export class CartController {
         });
 
         try {
-            // Validate request body
+            // Get the user ID from authenticated request
+            const userId = request.userId;
+
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
+
+            // Parse and validate request body
+            const body = await request.json() as unknown;
+
             const validationResult = await validateRequest(addToCartSchema)(request);
             if (validationResult instanceof Response) {
                 return validationResult;
             }
 
-            // Get the user ID from authenticated request
-            const userId = request.userId;
-
-            // Parse the request body
-            const { productId, quantity, attributes } = await request.json();
+            // Since validation passed, we can safely cast the body
+            const { productId, quantity, attributes } = body as {
+                productId: string;
+                quantity: number;
+                attributes?: Record<string, string>;
+            };
 
             // Add the product to the cart
             const updatedCart = await this.cartRepository.addItem(userId, {
@@ -89,17 +104,23 @@ export class CartController {
                 return errorResponse('Cart item ID is required', 400);
             }
 
-            // Validate request body
+            // Get the user ID from authenticated request
+            const userId = request.userId;
+
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
+
+            // Parse and validate request body
+            const body = await request.json() as unknown;
+
             const validationResult = await validateRequest(updateCartItemSchema)(request);
             if (validationResult instanceof Response) {
                 return validationResult;
             }
 
-            // Get the user ID from authenticated request
-            const userId = request.userId;
-
-            // Parse the request body
-            const { quantity } = await request.json();
+            // Since validation passed, we can safely cast the body
+            const { quantity } = body as { quantity: number };
 
             // Update the cart item
             const updatedCart = await this.cartRepository.updateItemQuantity(
@@ -130,6 +151,10 @@ export class CartController {
             // Get the user ID from authenticated request
             const userId = request.userId;
 
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
+
             // Remove the item from the cart
             const updatedCart = await this.cartRepository.removeItem(userId, cartItemId);
 
@@ -147,6 +172,10 @@ export class CartController {
         try {
             // Get the user ID from authenticated request
             const userId = request.userId;
+
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
 
             // Clear the cart
             await this.cartRepository.clearCart(userId);
@@ -168,17 +197,23 @@ export class CartController {
         });
 
         try {
-            // Validate request body
+            // Get the user ID from authenticated request
+            const userId = request.userId;
+
+            if (!userId) {
+                return errorResponse('User ID is required', 400);
+            }
+
+            // Parse and validate request body
+            const body = await request.json() as unknown;
+
             const validationResult = await validateRequest(applyCouponSchema)(request);
             if (validationResult instanceof Response) {
                 return validationResult;
             }
 
-            // Get the user ID from authenticated request
-            const userId = request.userId;
-
-            // Parse the request body
-            const { couponCode } = await request.json();
+            // Since validation passed, we can safely cast the body
+            const { couponCode } = body as { couponCode: string };
 
             // Apply the coupon to the cart
             const updatedCart = await this.cartRepository.applyCoupon(userId, couponCode);
