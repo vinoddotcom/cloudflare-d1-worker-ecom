@@ -1,0 +1,49 @@
+name = "ecommerce-api"
+main = "dist/index.js"
+compatibility_date = "2023-09-16"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "npm run build"
+watch_dir = "src"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ecommerce-db"
+database_id = "placeholder-id" # Replace with actual DB ID after creation
+
+[vars]
+ENVIRONMENT = "development"
+FIREBASE_PROJECT_ID = ""  # Add your Firebase project ID
+
+# Example route for versioned API
+[[routes]]
+pattern = "/api/v1/*"
+script = "dist/index.js"
+
+# Enable development environment
+[env.dev]
+name = "ecommerce-api-dev"
+vars = { ENVIRONMENT = "development" }
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "ecommerce-db-dev"
+database_id = "placeholder-id-dev" # Replace with actual dev DB ID
+
+# Staging environment
+[env.staging]
+name = "ecommerce-api-staging"
+vars = { ENVIRONMENT = "staging" }
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "ecommerce-db-staging"
+database_id = "placeholder-id-staging" # Replace with actual staging DB ID
+
+# Production environment
+[env.production]
+name = "ecommerce-api"
+vars = { ENVIRONMENT = "production" }
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "ecommerce-db-prod"
+database_id = "placeholder-id-prod" # Replace with actual production DB ID

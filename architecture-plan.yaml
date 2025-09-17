@@ -1,0 +1,1084 @@
+# Enterprise E-commerce API Architecture Plan (Cloudflare Worker + D1)
+
+# Project Overview
+name: "E-Commerce API Service"
+version: "1.0.0"
+description: "Enterprise-grade e-commerce backend API running on Cloudflare Workers with D1 database"
+runtime: "Cloudflare Workers"
+database: "Cloudflare D1"
+authentication: "Firebase Authentication"
+
+# Technical Requirements
+requirements:
+  - TypeScript (strict mode)
+  - Single Cloudflare Worker deployment
+  - D1 for database
+  - Firebase SDK for authentication
+  - RESTful API design
+  - JWT token-based authentication
+  - Role-based access control
+
+# System Architecture
+architecture:
+  - components:
+      - name: "API Router"
+        description: "Routes incoming requests to appropriate handlers"
+      - name: "Authentication Service"
+        description: "Manages Firebase authentication and token validation"
+      - name: "Data Access Layer"
+        description: "Abstracts database interactions using D1"
+      - name: "Business Logic Services"
+        description: "Implements core business logic for various domains"
+      - name: "Utilities"
+        description: "Shared utilities, helpers, and error handlers"
+
+# Project Structure
+project_structure:
+  src:
+    - index.ts                    # Main entry point
+    - router.ts                   # API router
+    - middleware:                 # Middleware functions
+        - auth.ts                 # Authentication middleware
+        - error-handler.ts        # Global error handler
+        - validator.ts            # Request validation middleware
+        - logger.ts               # Logging middleware
+    - services:                   # Business logic services
+        - user.service.ts
+        - product.service.ts
+        - cart.service.ts
+        - order.service.ts
+        - payment.service.ts
+        - shipping.service.ts
+        - inventory.service.ts
+        - blog.service.ts
+        - invoice.service.ts
+    - controllers:                # API controllers
+        - user.controller.ts
+        - product.controller.ts
+        - cart.controller.ts
+        - order.controller.ts
+        - payment.controller.ts
+        - shipping.controller.ts
+        - inventory.controller.ts
+        - blog.controller.ts
+        - invoice.controller.ts
+    - models:                     # Data models and interfaces
+        - user.model.ts
+        - product.model.ts
+        - cart.model.ts
+        - order.model.ts
+        - payment.model.ts
+        - shipping.model.ts
+        - inventory.model.ts
+        - blog.model.ts
+        - invoice.model.ts
+    - data:                       # Data access layer
+        - repositories:           # Database interactions
+            - user.repository.ts
+            - product.repository.ts
+            - cart.repository.ts
+            - order.repository.ts
+            - payment.repository.ts
+            - shipping.repository.ts
+            - inventory.repository.ts
+            - blog.repository.ts
+            - invoice.repository.ts
+        - migrations:             # Database migrations
+        - schema.sql              # SQL schema
+    - utils:                      # Utility functions
+        - error.ts                # Error handling utilities
+        - validation.ts           # Input validation utilities
+        - date.ts                 # Date handling utilities
+        - encryption.ts           # Data encryption utilities
+        - formatter.ts            # Response formatting utilities
+  test:                           # Test files
+  wrangler_toml:                  # Cloudflare Wrangler configuration
+
+# API Endpoints
+api_endpoints:
+  # User Management
+  - path: "/api/v1/users"
+    methods:
+      - GET:
+          description: "Get all users (admin only)"
+          auth: "admin"
+      - POST:
+          description: "Create a new user"
+          auth: "none"
+    
+  - path: "/api/v1/users/{id}"
+    methods:
+      - GET:
+          description: "Get user details"
+          auth: "user, admin"
+      - PUT:
+          description: "Update user details"
+          auth: "user, admin"
+      - DELETE:
+          description: "Delete user account"
+          auth: "user, admin"
+
+  - path: "/api/v1/auth/login"
+    methods:
+      - POST:
+          description: "User login"
+          auth: "none"
+
+  - path: "/api/v1/auth/register"
+    methods:
+      - POST:
+          description: "User registration"
+          auth: "none"
+
+  - path: "/api/v1/auth/logout"
+    methods:
+      - POST:
+          description: "User logout"
+          auth: "user"
+
+  # Product Management
+  - path: "/api/v1/products"
+    methods:
+      - GET:
+          description: "Get all products with filtering options"
+          auth: "none"
+      - POST:
+          description: "Create a new product"
+          auth: "admin"
+
+  - path: "/api/v1/products/{id}"
+    methods:
+      - GET:
+          description: "Get product details"
+          auth: "none"
+      - PUT:
+          description: "Update product details"
+          auth: "admin"
+      - DELETE:
+          description: "Delete product"
+          auth: "admin"
+
+  - path: "/api/v1/products/categories"
+    methods:
+      - GET:
+          description: "Get all product categories"
+          auth: "none"
+      - POST:
+          description: "Create a new category"
+          auth: "admin"
+
+  - path: "/api/v1/products/categories/{id}"
+    methods:
+      - GET:
+          description: "Get category details"
+          auth: "none"
+      - PUT:
+          description: "Update category"
+          auth: "admin"
+      - DELETE:
+          description: "Delete category"
+          auth: "admin"
+
+  # Inventory Management
+  - path: "/api/v1/inventory"
+    methods:
+      - GET:
+          description: "Get inventory status (admin only)"
+          auth: "admin"
+      - POST:
+          description: "Add inventory"
+          auth: "admin"
+
+  - path: "/api/v1/inventory/{productId}"
+    methods:
+      - GET:
+          description: "Get inventory for specific product"
+          auth: "admin"
+      - PUT:
+          description: "Update inventory for specific product"
+          auth: "admin"
+
+  # Cart Management
+  - path: "/api/v1/carts"
+    methods:
+      - GET:
+          description: "Get user's cart"
+          auth: "user"
+      - POST:
+          description: "Create a new cart (guest/user)"
+          auth: "none"
+
+  - path: "/api/v1/carts/{id}"
+    methods:
+      - GET:
+          description: "Get cart details"
+          auth: "user"
+      - PUT:
+          description: "Update cart"
+          auth: "user"
+      - DELETE:
+          description: "Delete cart"
+          auth: "user"
+
+  - path: "/api/v1/carts/{id}/items"
+    methods:
+      - POST:
+          description: "Add item to cart"
+          auth: "user"
+      - PUT:
+          description: "Update cart item"
+          auth: "user"
+
+  - path: "/api/v1/carts/{id}/items/{itemId}"
+    methods:
+      - DELETE:
+          description: "Remove item from cart"
+          auth: "user"
+
+  # Order Management
+  - path: "/api/v1/orders"
+    methods:
+      - GET:
+          description: "Get all orders (user: own orders, admin: all orders)"
+          auth: "user, admin"
+      - POST:
+          description: "Create a new order"
+          auth: "user"
+
+  - path: "/api/v1/orders/{id}"
+    methods:
+      - GET:
+          description: "Get order details"
+          auth: "user, admin"
+      - PUT:
+          description: "Update order status (admin only)"
+          auth: "admin"
+      - DELETE:
+          description: "Cancel order"
+          auth: "user, admin"
+
+  # Shipping & Address Management
+  - path: "/api/v1/addresses"
+    methods:
+      - GET:
+          description: "Get user addresses"
+          auth: "user"
+      - POST:
+          description: "Add new address"
+          auth: "user"
+
+  - path: "/api/v1/addresses/{id}"
+    methods:
+      - GET:
+          description: "Get address details"
+          auth: "user"
+      - PUT:
+          description: "Update address"
+          auth: "user"
+      - DELETE:
+          description: "Delete address"
+          auth: "user"
+
+  - path: "/api/v1/shipping/methods"
+    methods:
+      - GET:
+          description: "Get available shipping methods"
+          auth: "none"
+      - POST:
+          description: "Add shipping method (admin only)"
+          auth: "admin"
+
+  - path: "/api/v1/shipping/methods/{id}"
+    methods:
+      - GET:
+          description: "Get shipping method details"
+          auth: "none"
+      - PUT:
+          description: "Update shipping method (admin only)"
+          auth: "admin"
+      - DELETE:
+          description: "Delete shipping method (admin only)"
+          auth: "admin"
+
+  - path: "/api/v1/shipping/calculate"
+    methods:
+      - POST:
+          description: "Calculate shipping cost for address and items"
+          auth: "none"
+
+  # Payment Management
+  - path: "/api/v1/payments/methods"
+    methods:
+      - GET:
+          description: "Get available payment methods"
+          auth: "none"
+
+  - path: "/api/v1/payments/{orderId}/process"
+    methods:
+      - POST:
+          description: "Process payment for an order"
+          auth: "user"
+
+  - path: "/api/v1/payments/{paymentId}"
+    methods:
+      - GET:
+          description: "Get payment details"
+          auth: "user, admin"
+
+  # Invoice Management
+  - path: "/api/v1/invoices"
+    methods:
+      - GET:
+          description: "Get all invoices (user: own invoices, admin: all invoices)"
+          auth: "user, admin"
+
+  - path: "/api/v1/invoices/{id}"
+    methods:
+      - GET:
+          description: "Get invoice details"
+          auth: "user, admin"
+      - PUT:
+          description: "Update invoice (admin only)"
+          auth: "admin"
+
+  - path: "/api/v1/invoices/{orderId}/generate"
+    methods:
+      - POST:
+          description: "Generate invoice for order"
+          auth: "user, admin"
+
+  # Blog Management
+  - path: "/api/v1/blogs"
+    methods:
+      - GET:
+          description: "Get all published blog posts"
+          auth: "none"
+      - POST:
+          description: "Create a new blog post (admin only)"
+          auth: "admin"
+
+  - path: "/api/v1/blogs/{id}"
+    methods:
+      - GET:
+          description: "Get blog post details"
+          auth: "none"
+      - PUT:
+          description: "Update blog post (admin only)"
+          auth: "admin"
+      - DELETE:
+          description: "Delete blog post (admin only)"
+          auth: "admin"
+
+  - path: "/api/v1/blogs/categories"
+    methods:
+      - GET:
+          description: "Get all blog categories"
+          auth: "none"
+      - POST:
+          description: "Create a new blog category (admin only)"
+          auth: "admin"
+
+# Database Schema
+database_schema:
+  tables:
+    # Users
+    - name: "users"
+      columns:
+        - name: "id"
+          type: "TEXT"
+          primary_key: true
+          description: "Firebase UID"
+        - name: "email"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "first_name"
+          type: "TEXT"
+          not_null: true
+        - name: "last_name"
+          type: "TEXT"
+          not_null: true
+        - name: "phone"
+          type: "TEXT"
+        - name: "role"
+          type: "TEXT"
+          not_null: true
+          default: "'customer'"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+    
+    # User Addresses
+    - name: "addresses"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "user_id"
+          type: "TEXT"
+          not_null: true
+          foreign_key: "users(id)"
+        - name: "address_type"
+          type: "TEXT"
+          not_null: true
+        - name: "is_default"
+          type: "INTEGER"
+          not_null: true
+          default: 0
+        - name: "address_line1"
+          type: "TEXT"
+          not_null: true
+        - name: "address_line2"
+          type: "TEXT"
+        - name: "city"
+          type: "TEXT"
+          not_null: true
+        - name: "state"
+          type: "TEXT"
+          not_null: true
+        - name: "postal_code"
+          type: "TEXT"
+          not_null: true
+        - name: "country"
+          type: "TEXT"
+          not_null: true
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Product Categories
+    - name: "product_categories"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "name"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "description"
+          type: "TEXT"
+        - name: "parent_id"
+          type: "INTEGER"
+          foreign_key: "product_categories(id)"
+        - name: "image_url"
+          type: "TEXT"
+        - name: "is_active"
+          type: "INTEGER"
+          not_null: true
+          default: 1
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Products
+    - name: "products"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "sku"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "name"
+          type: "TEXT"
+          not_null: true
+        - name: "description"
+          type: "TEXT"
+        - name: "price"
+          type: "REAL"
+          not_null: true
+        - name: "compare_at_price"
+          type: "REAL"
+        - name: "cost_price"
+          type: "REAL"
+        - name: "weight"
+          type: "REAL"
+        - name: "weight_unit"
+          type: "TEXT"
+        - name: "featured"
+          type: "INTEGER"
+          default: 0
+        - name: "is_active"
+          type: "INTEGER"
+          not_null: true
+          default: 1
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Product Category Relationships
+    - name: "product_category_relationships"
+      columns:
+        - name: "product_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "products(id)"
+        - name: "category_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "product_categories(id)"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+      constraints:
+        - "PRIMARY KEY (product_id, category_id)"
+
+    # Product Images
+    - name: "product_images"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "product_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "products(id)"
+        - name: "image_url"
+          type: "TEXT"
+          not_null: true
+        - name: "alt_text"
+          type: "TEXT"
+        - name: "is_primary"
+          type: "INTEGER"
+          not_null: true
+          default: 0
+        - name: "sort_order"
+          type: "INTEGER"
+          not_null: true
+          default: 0
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Product Variants
+    - name: "product_variants"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "product_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "products(id)"
+        - name: "sku"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "name"
+          type: "TEXT"
+          not_null: true
+        - name: "price"
+          type: "REAL"
+          not_null: true
+        - name: "compare_at_price"
+          type: "REAL"
+        - name: "is_active"
+          type: "INTEGER"
+          not_null: true
+          default: 1
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Product Attributes
+    - name: "product_attributes"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "name"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Product Attribute Values
+    - name: "product_attribute_values"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "attribute_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "product_attributes(id)"
+        - name: "value"
+          type: "TEXT"
+          not_null: true
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+      constraints:
+        - "UNIQUE (attribute_id, value)"
+
+    # Product Variant Attributes
+    - name: "product_variant_attributes"
+      columns:
+        - name: "variant_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "product_variants(id)"
+        - name: "attribute_value_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "product_attribute_values(id)"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+      constraints:
+        - "PRIMARY KEY (variant_id, attribute_value_id)"
+
+    # Inventory
+    - name: "inventory"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "product_variant_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "product_variants(id)"
+        - name: "quantity"
+          type: "INTEGER"
+          not_null: true
+          default: 0
+        - name: "reserved_quantity"
+          type: "INTEGER"
+          not_null: true
+          default: 0
+        - name: "reorder_level"
+          type: "INTEGER"
+          not_null: true
+          default: 5
+        - name: "reorder_quantity"
+          type: "INTEGER"
+          not_null: true
+          default: 10
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Carts
+    - name: "carts"
+      columns:
+        - name: "id"
+          type: "TEXT"
+          primary_key: true
+        - name: "user_id"
+          type: "TEXT"
+          foreign_key: "users(id)"
+        - name: "guest_token"
+          type: "TEXT"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+      constraints:
+        - "CHECK ((user_id IS NOT NULL) OR (guest_token IS NOT NULL))"
+
+    # Cart Items
+    - name: "cart_items"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "cart_id"
+          type: "TEXT"
+          not_null: true
+          foreign_key: "carts(id)"
+        - name: "product_variant_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "product_variants(id)"
+        - name: "quantity"
+          type: "INTEGER"
+          not_null: true
+          default: 1
+        - name: "price"
+          type: "REAL"
+          not_null: true
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+      constraints:
+        - "UNIQUE (cart_id, product_variant_id)"
+
+    # Orders
+    - name: "orders"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "order_number"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "user_id"
+          type: "TEXT"
+          not_null: true
+          foreign_key: "users(id)"
+        - name: "status"
+          type: "TEXT"
+          not_null: true
+          default: "'pending'"
+        - name: "subtotal"
+          type: "REAL"
+          not_null: true
+        - name: "shipping_fee"
+          type: "REAL"
+          not_null: true
+        - name: "tax_amount"
+          type: "REAL"
+          not_null: true
+        - name: "total_amount"
+          type: "REAL"
+          not_null: true
+        - name: "shipping_address_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "addresses(id)"
+        - name: "billing_address_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "addresses(id)"
+        - name: "shipping_method"
+          type: "TEXT"
+          not_null: true
+        - name: "payment_method"
+          type: "TEXT"
+          not_null: true
+        - name: "notes"
+          type: "TEXT"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Order Items
+    - name: "order_items"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "order_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "orders(id)"
+        - name: "product_variant_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "product_variants(id)"
+        - name: "quantity"
+          type: "INTEGER"
+          not_null: true
+        - name: "price"
+          type: "REAL"
+          not_null: true
+        - name: "product_name"
+          type: "TEXT"
+          not_null: true
+        - name: "variant_name"
+          type: "TEXT"
+          not_null: true
+        - name: "sku"
+          type: "TEXT"
+          not_null: true
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Order Status History
+    - name: "order_status_history"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "order_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "orders(id)"
+        - name: "status"
+          type: "TEXT"
+          not_null: true
+        - name: "notes"
+          type: "TEXT"
+        - name: "created_by"
+          type: "TEXT"
+          not_null: true
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Payments
+    - name: "payments"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "order_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "orders(id)"
+        - name: "amount"
+          type: "REAL"
+          not_null: true
+        - name: "payment_method"
+          type: "TEXT"
+          not_null: true
+        - name: "status"
+          type: "TEXT"
+          not_null: true
+          default: "'pending'"
+        - name: "transaction_id"
+          type: "TEXT"
+        - name: "payment_details"
+          type: "TEXT"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Invoices
+    - name: "invoices"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "invoice_number"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "order_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "orders(id)"
+        - name: "issue_date"
+          type: "INTEGER"
+          not_null: true
+        - name: "due_date"
+          type: "INTEGER"
+          not_null: true
+        - name: "status"
+          type: "TEXT"
+          not_null: true
+          default: "'issued'"
+        - name: "amount"
+          type: "REAL"
+          not_null: true
+        - name: "tax_amount"
+          type: "REAL"
+          not_null: true
+        - name: "total_amount"
+          type: "REAL"
+          not_null: true
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Shipping Methods
+    - name: "shipping_methods"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "name"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "description"
+          type: "TEXT"
+        - name: "base_price"
+          type: "REAL"
+          not_null: true
+        - name: "is_active"
+          type: "INTEGER"
+          not_null: true
+          default: 1
+        - name: "estimated_days"
+          type: "INTEGER"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Blog Categories
+    - name: "blog_categories"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "name"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "slug"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "description"
+          type: "TEXT"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Blog Posts
+    - name: "blog_posts"
+      columns:
+        - name: "id"
+          type: "INTEGER"
+          primary_key: true
+          auto_increment: true
+        - name: "title"
+          type: "TEXT"
+          not_null: true
+        - name: "slug"
+          type: "TEXT"
+          not_null: true
+          unique: true
+        - name: "content"
+          type: "TEXT"
+          not_null: true
+        - name: "excerpt"
+          type: "TEXT"
+        - name: "featured_image"
+          type: "TEXT"
+        - name: "author_id"
+          type: "TEXT"
+          not_null: true
+          foreign_key: "users(id)"
+        - name: "status"
+          type: "TEXT"
+          not_null: true
+          default: "'draft'"
+        - name: "published_at"
+          type: "INTEGER"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+        - name: "updated_at"
+          type: "INTEGER"
+          not_null: true
+
+    # Blog Post Categories
+    - name: "blog_post_categories"
+      columns:
+        - name: "post_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "blog_posts(id)"
+        - name: "category_id"
+          type: "INTEGER"
+          not_null: true
+          foreign_key: "blog_categories(id)"
+        - name: "created_at"
+          type: "INTEGER"
+          not_null: true
+      constraints:
+        - "PRIMARY KEY (post_id, category_id)"
+
+# Firebase Authentication Configuration
+firebase_auth:
+  roles:
+    - role: "admin"
+      description: "Full access to all resources"
+    - role: "manager"
+      description: "Access to manage products, orders, but not users"
+    - role: "customer"
+      description: "Standard customer role"
+  claims:
+    - claim: "role"
+      description: "User role for authorization"
+
+# Error Handling
+error_handling:
+  strategies:
+    - name: "Centralized Error Handler"
+      description: "Global error handler middleware"
+    - name: "Structured Error Response"
+      description: "Consistent error response format"
+    - name: "Error Logging"
+      description: "Log errors for monitoring and debugging"
+  error_codes:
+    - code: 400
+      name: "BAD_REQUEST"
+      description: "Invalid input parameters"
+    - code: 401
+      name: "UNAUTHORIZED"
+      description: "Authentication required"
+    - code: 403
+      name: "FORBIDDEN"
+      description: "Permission denied"
+    - code: 404
+      name: "NOT_FOUND"
+      description: "Resource not found"
+    - code: 409
+      name: "CONFLICT"
+      description: "Resource conflict"
+    - code: 500
+      name: "INTERNAL_SERVER_ERROR"
+      description: "Server error"
+
+# Deployment Configuration
+deployment:
+  environment:
+    - dev:
+        worker_name: "ecommerce-api-dev"
+        d1_database: "ecommerce-dev"
+    - staging:
+        worker_name: "ecommerce-api-staging"
+        d1_database: "ecommerce-staging"
+    - production:
+        worker_name: "ecommerce-api"
+        d1_database: "ecommerce-prod"
