@@ -14,35 +14,76 @@ database_id = "placeholder-id" # Replace with actual DB ID after creation
 
 [vars]
 ENVIRONMENT = "development"
-FIREBASE_PROJECT_ID = ""  # Add your Firebase project ID
+FIREBASE_PROJECT_ID = ""            # Add your Firebase project ID
+DELHIVERY_API_KEY = ""              # Add Delhivery API Key
+RAZORPAY_KEY_ID = ""                # Add Razorpay Key ID
+RAZORPAY_KEY_SECRET = ""            # Add Razorpay Key Secret
+RAZORPAY_WEBHOOK_SECRET = ""        # Add Razorpay Webhook Secret
+CLOUDFLARE_ACCOUNT_ID = ""          # Your Cloudflare Account ID
+CLOUDFLARE_API_TOKEN = ""           # API Token with Images permissions
+CLOUDFLARE_IMAGES_HASH = ""         # Cloudflare Images hash
 
 # Example route for versioned API
 [[routes]]
 pattern = "/api/v1/*"
 script = "dist/index.js"
 
-# Enable development environment
+# ---------------------------
+# Development environment
 [env.dev]
 name = "ecommerce-api-dev"
-vars = { ENVIRONMENT = "development" }
+vars = { 
+  ENVIRONMENT = "development",
+  FIREBASE_PROJECT_ID = "",
+  DELHIVERY_API_KEY = "",
+  RAZORPAY_KEY_ID = "",
+  RAZORPAY_KEY_SECRET = "",
+  RAZORPAY_WEBHOOK_SECRET = "",
+  CLOUDFLARE_ACCOUNT_ID = "",
+  CLOUDFLARE_API_TOKEN = "",
+  CLOUDFLARE_IMAGES_HASH = ""
+}
 [[env.dev.d1_databases]]
 binding = "DB"
 database_name = "ecommerce-db-dev"
 database_id = "placeholder-id-dev" # Replace with actual dev DB ID
 
+# ---------------------------
 # Staging environment
 [env.staging]
 name = "ecommerce-api-staging"
-vars = { ENVIRONMENT = "staging" }
+vars = { 
+  ENVIRONMENT = "staging",
+  FIREBASE_PROJECT_ID = "",
+  DELHIVERY_API_KEY = "",
+  RAZORPAY_KEY_ID = "",
+  RAZORPAY_KEY_SECRET = "",
+  RAZORPAY_WEBHOOK_SECRET = "",
+  CLOUDFLARE_ACCOUNT_ID = "",
+  CLOUDFLARE_API_TOKEN = "",
+  CLOUDFLARE_IMAGES_HASH = ""
+}
+
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "ecommerce-db-staging"
 database_id = "placeholder-id-staging" # Replace with actual staging DB ID
 
+# ---------------------------
 # Production environment
 [env.production]
 name = "ecommerce-api"
-vars = { ENVIRONMENT = "production" }
+vars = { 
+  ENVIRONMENT = "production",
+  FIREBASE_PROJECT_ID = "",
+  DELHIVERY_API_KEY = "",
+  RAZORPAY_KEY_ID = "",
+  RAZORPAY_KEY_SECRET = "",
+  RAZORPAY_WEBHOOK_SECRET = "",
+  CLOUDFLARE_ACCOUNT_ID = "",
+  CLOUDFLARE_API_TOKEN = "",
+  CLOUDFLARE_IMAGES_HASH = ""
+}
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "ecommerce-db-prod"

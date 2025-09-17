@@ -2,12 +2,13 @@ import { Env } from './models/common.model';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { setupApiRoutes } from './router';
 
+let router: ReturnType<typeof setupApiRoutes>;
+
 /**
  * Worker fetch handler
  */
 export default {
-    async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
-        const router = setupApiRoutes(env);
+        if (!router) router = setupApiRoutes(env);
 
         // Add the catch-all not found handler
         router.all('*', notFoundHandler());
