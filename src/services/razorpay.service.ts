@@ -43,6 +43,7 @@ export class RazorpayService {
     private baseUrl = 'https://api.razorpay.com/v1';
     private keyId: string;
     private keySecret: string;
+    public isEnabled: boolean;
 
     // Utility function for handling Razorpay API errors
     private async handleResponse<T>(response: Response): Promise<T> {
@@ -61,7 +62,10 @@ export class RazorpayService {
         this.keySecret = env.RAZORPAY_KEY_SECRET;
 
         if (!this.keyId || !this.keySecret) {
-            console.error('Razorpay API keys are not configured properly');
+            this.isEnabled = false;
+            // console.error('Razorpay API keys are not configured properly');
+        } else {
+            this.isEnabled = true;
         }
     }
 
@@ -71,6 +75,21 @@ export class RazorpayService {
      * @returns Created order from Razorpay
      */
     async createOrder(orderData: RazorpayOrderRequest): Promise<RazorpayOrderResponse> {
+        if (!this.isEnabled) {
+            return {
+                id: 'mock_order_id',
+                entity: 'order',
+                amount: orderData.amount,
+                amount_paid: 0,
+                amount_due: orderData.amount,
+                currency: orderData.currency,
+                receipt: orderData.receipt,
+                status: 'created',
+                attempts: 0,
+                notes: orderData.notes || {},
+                created_at: Math.floor(Date.now() / 1000),
+            };
+        }
         try {
             const response = await fetch(`${this.baseUrl}/orders`, {
                 method: 'POST',

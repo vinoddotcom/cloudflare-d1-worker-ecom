@@ -14,8 +14,11 @@ export const validateRequest = <T>(
 ) => {
     return async (request: IRequest): Promise<Response | void> => {
         try {
-            let data: any;
+            let data: Record<string, unknown>;
 
+            // Initialize data
+            data = {};
+            
             // Extract data based on type
             switch (type) {
                 case 'body':
@@ -34,11 +37,10 @@ export const validateRequest = <T>(
                     }
                     break;
 
-                case 'query':
+                case 'query': {
                     // Parse URL search params
-                    data = {};
                     const url = new URL(request.url);
-                    for (const [key, value] of url.searchParams.entries()) {
+                    url.searchParams.forEach((value, key) => {
                         // Handle array parameters (e.g., ?ids=1&ids=2&ids=3)
                         if (data[key]) {
                             if (Array.isArray(data[key])) {
@@ -49,8 +51,9 @@ export const validateRequest = <T>(
                         } else {
                             data[key] = value;
                         }
-                    }
+                    });
                     break;
+                }
 
                 case 'params':
                     // Use params from request (added by itty-router)
@@ -64,13 +67,13 @@ export const validateRequest = <T>(
             // Attach validated data to request
             switch (type) {
                 case 'body':
-                    (request as any).validatedBody = validatedData;
+                    (request as IRequest & { validatedBody?: T }).validatedBody = validatedData;
                     break;
                 case 'query':
-                    (request as any).validatedQuery = validatedData;
+                    (request as IRequest & { validatedQuery?: T }).validatedQuery = validatedData;
                     break;
                 case 'params':
-                    (request as any).validatedParams = validatedData;
+                    (request as IRequest & { validatedParams?: T }).validatedParams = validatedData;
                     break;
             }
 

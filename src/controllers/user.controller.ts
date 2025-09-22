@@ -1,24 +1,19 @@
 import { z } from 'zod';
 import { AuthRequest } from '../middleware/auth';
-import { FirebaseAuthService } from '../services/firebase-auth.service';
 import { UserRepository } from '../data/repositories/user.repository';
 import { Env } from '../models/common.model';
-import { User, UserRole, Address } from '../models/user.model';
-import { successResponse, createdResponse, noContentResponse, paginatedResponse, extractPaginationParams } from '../utils/formatter';
+import { User, UserRole } from '../models/user.model';
+import { successResponse, noContentResponse, paginatedResponse, extractPaginationParams } from '../utils/formatter';
 import { notFound, unauthorized, forbidden, badRequest } from '../utils/error';
-import { ValidationSchemas } from '../middleware/validator';
 
 /**
  * User Controller
  * Handles user management API endpoints
  */
 export class UserController {
-    private firebaseAuth: FirebaseAuthService;
     private userRepository: UserRepository;
 
     constructor(env: Env) {
-        this.firebaseAuth = FirebaseAuthService.getInstance();
-        this.firebaseAuth.initialize(env);
         this.userRepository = new UserRepository(env.DB);
     }
 
@@ -42,7 +37,7 @@ export class UserController {
      * Get all users (admin only)
      */
     async getAllUsers(request: AuthRequest): Promise<Response> {
-        if (request.userRole !== 'admin') {
+        if (request.userRole !== UserRole.ADMIN) {
             throw forbidden();
         }
 
@@ -67,7 +62,7 @@ export class UserController {
         }
 
         // Only admins can view other users, users can only view themselves
-        if (request.userRole !== 'admin' && request.userId !== userId) {
+        if (request.userRole !== UserRole.ADMIN && request.userId !== userId) {
             throw forbidden();
         }
 
@@ -89,7 +84,7 @@ export class UserController {
         }
 
         // Only admins can update other users, users can only update themselves
-        if (request.userRole !== 'admin' && request.userId !== userId) {
+        if (request.userRole !== UserRole.ADMIN && request.userId !== userId) {
             throw forbidden();
         }
 
@@ -100,13 +95,13 @@ export class UserController {
             first_name: z.string().min(1).optional(),
             last_name: z.string().min(1).optional(),
             phone: z.string().optional().nullable(),
-            role: z.enum(['admin', 'manager', 'customer']).optional(),
+            role: z.nativeEnum(UserRole).optional(),
         });
 
         const validatedData = updateUserSchema.parse(userData);
 
         // Only admins can update roles
-        if (validatedData.role && request.userRole !== 'admin') {
+        if (validatedData.role && request.userRole !== UserRole.ADMIN) {
             throw forbidden('Only administrators can update user roles');
         }
 
@@ -125,11 +120,6 @@ export class UserController {
             throw new Error('Failed to update user');
         }
 
-        // If role was updated, update Firebase custom claims
-        if (validatedData.role && request.userRole === 'admin') {
-            await this.firebaseAuth.setUserRole(userId, validatedData.role as UserRole);
-        }
-
         // Return updated user
         const updatedUser = await this.userRepository.findById(userId);
         return successResponse(updatedUser);
@@ -145,7 +135,7 @@ export class UserController {
         }
 
         // Only admins can delete other users, users can only delete themselves
-        if (request.userRole !== 'admin' && request.userId !== userId) {
+        if (request.userRole !== UserRole.ADMIN && request.userId !== userId) {
             throw forbidden();
         }
 
@@ -160,9 +150,6 @@ export class UserController {
         if (!success) {
             throw new Error('Failed to delete user from database');
         }
-
-        // Delete user from Firebase
-        await this.firebaseAuth.deleteUser(userId);
 
         return noContentResponse();
     }

@@ -7,84 +7,77 @@ compatibility_flags = ["nodejs_compat"]
 command = "npm run build"
 watch_dir = "src"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "ecommerce-db"
-database_id = "placeholder-id" # Replace with actual DB ID after creation
-
-[vars]
-ENVIRONMENT = "development"
-FIREBASE_PROJECT_ID = ""            # Add your Firebase project ID
-DELHIVERY_API_KEY = ""              # Add Delhivery API Key
-RAZORPAY_KEY_ID = ""                # Add Razorpay Key ID
-RAZORPAY_KEY_SECRET = ""            # Add Razorpay Key Secret
-RAZORPAY_WEBHOOK_SECRET = ""        # Add Razorpay Webhook Secret
-CLOUDFLARE_ACCOUNT_ID = ""          # Your Cloudflare Account ID
-CLOUDFLARE_API_TOKEN = ""           # API Token with Images permissions
-CLOUDFLARE_IMAGES_HASH = ""         # Cloudflare Images hash
-
-# Example route for versioned API
-[[routes]]
-pattern = "/api/v1/*"
-script = "dist/index.js"
-
 # ---------------------------
 # Development environment
 [env.dev]
 name = "ecommerce-api-dev"
-vars = { 
-  ENVIRONMENT = "development",
-  FIREBASE_PROJECT_ID = "",
-  DELHIVERY_API_KEY = "",
-  RAZORPAY_KEY_ID = "",
-  RAZORPAY_KEY_SECRET = "",
-  RAZORPAY_WEBHOOK_SECRET = "",
-  CLOUDFLARE_ACCOUNT_ID = "",
-  CLOUDFLARE_API_TOKEN = "",
-  CLOUDFLARE_IMAGES_HASH = ""
-}
+
 [[env.dev.d1_databases]]
 binding = "DB"
-database_name = "ecommerce-db-dev"
-database_id = "placeholder-id-dev" # Replace with actual dev DB ID
+database_name = "blissmaa-dev-db"
+database_id = "4d3692c0-1dce-4310-bfda-bda7917a89ab"
+
+[[env.dev.r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "blissmaa-dev-images"
+
+[env.dev.vars]
+ENVIRONMENT = "development"
+FIREBASE_PROJECT_ID = "your-firebase-project-id"
+DELHIVERY_API_KEY = "your-delhivery-api-key"
+RAZORPAY_KEY_ID = "your-razorpay-key-id"
+RAZORPAY_KEY_SECRET = "your-razorpay-key-secret"
+RAZORPAY_WEBHOOK_SECRET = "your-razorpay-webhook-secret"
+CLOUDFLARE_ACCOUNT_ID = "your-cloudflare-account-id"
+CLOUDFLARE_API_TOKEN = "your-cloudflare-api-token"
+CLOUDFLARE_IMAGES_HASH = "your-cloudflare-images-hash"
 
 # ---------------------------
 # Staging environment
 [env.staging]
 name = "ecommerce-api-staging"
-vars = { 
-  ENVIRONMENT = "staging",
-  FIREBASE_PROJECT_ID = "",
-  DELHIVERY_API_KEY = "",
-  RAZORPAY_KEY_ID = "",
-  RAZORPAY_KEY_SECRET = "",
-  RAZORPAY_WEBHOOK_SECRET = "",
-  CLOUDFLARE_ACCOUNT_ID = "",
-  CLOUDFLARE_API_TOKEN = "",
-  CLOUDFLARE_IMAGES_HASH = ""
-}
 
 [[env.staging.d1_databases]]
 binding = "DB"
-database_name = "ecommerce-db-staging"
-database_id = "placeholder-id-staging" # Replace with actual staging DB ID
+database_name = "blissmaa-prod-db"
+database_id = "499e52b9-dd7d-4c37-ad40-9f54638c98c1"
+
+[[env.staging.r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "blissmaa-prod-images"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+FIREBASE_PROJECT_ID = ""
+DELHIVERY_API_KEY = ""
+RAZORPAY_KEY_ID = ""
+RAZORPAY_KEY_SECRET = ""
+RAZORPAY_WEBHOOK_SECRET = ""
+CLOUDFLARE_ACCOUNT_ID = ""
+CLOUDFLARE_API_TOKEN = ""
+CLOUDFLARE_IMAGES_HASH = ""
 
 # ---------------------------
 # Production environment
 [env.production]
 name = "ecommerce-api"
-vars = { 
-  ENVIRONMENT = "production",
-  FIREBASE_PROJECT_ID = "",
-  DELHIVERY_API_KEY = "",
-  RAZORPAY_KEY_ID = "",
-  RAZORPAY_KEY_SECRET = "",
-  RAZORPAY_WEBHOOK_SECRET = "",
-  CLOUDFLARE_ACCOUNT_ID = "",
-  CLOUDFLARE_API_TOKEN = "",
-  CLOUDFLARE_IMAGES_HASH = ""
-}
+
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "ecommerce-db-prod"
-database_id = "placeholder-id-prod" # Replace with actual production DB ID
+database_name = "blissmaa-prod-db"
+database_id = "499e52b9-dd7d-4c37-ad40-9f54638c98c1"
+
+[[env.production.r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "blissmaa-prod-images"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+FIREBASE_PROJECT_ID = ""
+DELHIVERY_API_KEY = ""
+RAZORPAY_KEY_ID = ""
+RAZORPAY_KEY_SECRET = ""
+RAZORPAY_WEBHOOK_SECRET = ""
+CLOUDFLARE_ACCOUNT_ID = ""
+CLOUDFLARE_API_TOKEN = ""
+CLOUDFLARE_IMAGES_HASH = ""

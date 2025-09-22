@@ -1,9 +1,9 @@
-import { IRequest } from 'itty-router';
-import { Env } from '../models/common.model';
 import { AuthRequest } from '../middleware/auth';
 import { errorResponse, successResponse } from '../utils/response';
 import { Address } from '../models/user.model';
 import { AddressRepository } from '../data/repositories/address.repository';
+import { Env } from '../models/common.model';
+import { AddressCreateInput, AddressUpdateInput } from '../models/address.model';
 
 /**
  * Controller for address-related operations
@@ -61,34 +61,8 @@ export class AddressController {
      */
     async createAddress(request: AuthRequest): Promise<Response> {
         try {
-            // Get and validate data
-            const data = await request.json() as any;
+            const data = (request as AuthRequest & { validatedBody: AddressCreateInput }).validatedBody;
             const userId = request.userId || '';
-
-            // Validate required fields
-            if (!data.address_type || !['shipping', 'billing', 'both'].includes(data.address_type)) {
-                return errorResponse('Valid address_type is required (shipping, billing, or both)', 400);
-            }
-
-            if (!data.address_line1) {
-                return errorResponse('address_line1 is required', 400);
-            }
-
-            if (!data.city) {
-                return errorResponse('city is required', 400);
-            }
-
-            if (!data.state) {
-                return errorResponse('state is required', 400);
-            }
-
-            if (!data.postal_code) {
-                return errorResponse('postal_code is required', 400);
-            }
-
-            if (!data.country) {
-                return errorResponse('country is required', 400);
-            }
 
             // If is_default is true, update existing default addresses
             if (data.is_default) {
@@ -102,11 +76,11 @@ export class AddressController {
                 user_id: userId,
                 address_type: data.address_type,
                 is_default: data.is_default || false,
-                name: data.name || null,
-                phone: data.phone || null,
+                name: data.name || undefined,
+                phone: data.phone || undefined,
                 address_line1: data.address_line1,
-                address_line2: data.address_line2 || null,
-                landmark: data.landmark || null,
+                address_line2: data.address_line2 || undefined,
+                landmark: data.landmark || undefined,
                 city: data.city,
                 state: data.state,
                 postal_code: data.postal_code,
@@ -125,7 +99,6 @@ export class AddressController {
                 address: newAddress
             }, 201);
         } catch (error) {
-            console.error('Error creating address:', error);
             return errorResponse(error instanceof Error ? error.message : 'Failed to create address', 500);
         }
     }
@@ -152,12 +125,7 @@ export class AddressController {
                 return errorResponse('Address not found or you do not have permission to update it', 404);
             }
 
-            const data = await request.json() as any;
-
-            // Validate address type if provided
-            if (data.address_type && !['shipping', 'billing', 'both'].includes(data.address_type)) {
-                return errorResponse('Invalid address_type. Must be shipping, billing, or both', 400);
-            }
+            const data = (request as AuthRequest & { validatedBody: AddressUpdateInput }).validatedBody;
 
             // If is_default is true, update existing default addresses
             if (data.is_default) {
@@ -199,7 +167,6 @@ export class AddressController {
                 address: updatedAddress
             });
         } catch (error) {
-            console.error('Error updating address:', error);
             return errorResponse(error instanceof Error ? error.message : 'Failed to update address', 500);
         }
     }

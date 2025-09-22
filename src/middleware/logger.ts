@@ -82,9 +82,7 @@ export class SimpleLogger implements Logger {
 }
 
 // Create singleton logger instance
-export const logger = new SimpleLogger(
-    process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG
-);
+export const logger = new SimpleLogger(LogLevel.INFO);
 
 /**
  * Request logging middleware

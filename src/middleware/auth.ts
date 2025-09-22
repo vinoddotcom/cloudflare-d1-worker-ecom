@@ -108,7 +108,9 @@ export const authorize = (allowedRoles: UserRole[]) => {
         }
 
         // Check if the user has the required role
-        if (!allowedRoles.includes(authRequest.userRole)) {
+        const hasAllowedRole = allowedRoles.some(role => role === authRequest.userRole);
+        
+        if (!hasAllowedRole) {
             return new Response(
                 JSON.stringify({
                     success: false,

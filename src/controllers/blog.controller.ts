@@ -60,8 +60,7 @@ export class BlogController {
                 category
             });
         } catch (error) {
-            console.error('Error creating category:', error);
-            return errorResponse(error instanceof Error ? error.message : 'Failed to create category', 500);
+            return errorResponse(error instanceof Error ? error.message : 'Failed to create blog category', 500);
         }
     }
 
@@ -127,8 +126,7 @@ export class BlogController {
                 category: updatedCategory
             });
         } catch (error) {
-            console.error('Error updating category:', error);
-            return errorResponse(error instanceof Error ? error.message : 'Failed to update category', 500);
+            return errorResponse(error instanceof Error ? error.message : 'Failed to update blog category', 500);
         }
     }
 
@@ -161,21 +159,19 @@ export class BlogController {
                 message: 'Category deleted successfully'
             });
         } catch (error) {
-            console.error('Error deleting category:', error);
-            return errorResponse(error instanceof Error ? error.message : 'Failed to delete category', 500);
+            return errorResponse(error instanceof Error ? error.message : 'Failed to delete blog category', 500);
         }
     }
 
     /**
      * Get all blog categories
      */
-    async getAllCategories(request: IRequest): Promise<Response> {
+    async getAllCategories(): Promise<Response> {
         try {
             const categories = await this.blogRepository.getAllCategories();
             return successResponse(categories);
         } catch (error) {
-            console.error('Error fetching categories:', error);
-            return errorResponse(error instanceof Error ? error.message : 'Failed to fetch categories', 500);
+            return errorResponse(error instanceof Error ? error.message : 'Failed to fetch blog categories', 500);
         }
     }
 
@@ -201,8 +197,7 @@ export class BlogController {
 
             return successResponse(category);
         } catch (error) {
-            console.error('Error fetching category:', error);
-            return errorResponse(error instanceof Error ? error.message : 'Failed to fetch category', 500);
+            return errorResponse(error instanceof Error ? error.message : 'Failed to fetch blog category', 500);
         }
     }
 
@@ -274,7 +269,6 @@ export class BlogController {
                 post
             });
         } catch (error) {
-            console.error('Error creating blog post:', error);
             return errorResponse(error instanceof Error ? error.message : 'Failed to create blog post', 500);
         }
     }
@@ -363,7 +357,6 @@ export class BlogController {
                 post: updatedPost
             });
         } catch (error) {
-            console.error('Error updating blog post:', error);
             return errorResponse(error instanceof Error ? error.message : 'Failed to update blog post', 500);
         }
     }
@@ -397,14 +390,10 @@ export class BlogController {
                 message: 'Blog post deleted successfully'
             });
         } catch (error) {
-            console.error('Error deleting blog post:', error);
             return errorResponse(error instanceof Error ? error.message : 'Failed to delete blog post', 500);
         }
     }
 
-    /**
-     * Get a blog post by ID
-     */
     async getPostById(request: IRequest): Promise<Response> {
         try {
             const postId = request.params?.id;
@@ -417,15 +406,10 @@ export class BlogController {
                 return errorResponse('Invalid post ID', 400);
             }
 
-            try {
-                const post = await this.blogRepository.getPostById(postIdNumber);
-                return successResponse(post);
-            } catch (error) {
-                return errorResponse('Blog post not found', 404);
-            }
+            const post = await this.blogRepository.getPostById(postIdNumber);
+            return successResponse(post);
         } catch (error) {
-            console.error('Error fetching blog post:', error);
-            return errorResponse(error instanceof Error ? error.message : 'Failed to fetch blog post', 500);
+            return errorResponse('Blog post not found', 404);
         }
     }
 
@@ -446,7 +430,6 @@ export class BlogController {
                 return errorResponse('Blog post not found', 404);
             }
         } catch (error) {
-            console.error('Error fetching blog post:', error);
             return errorResponse(error instanceof Error ? error.message : 'Failed to fetch blog post', 500);
         }
     }
@@ -495,7 +478,6 @@ export class BlogController {
                 }
             });
         } catch (error) {
-            console.error('Error listing blog posts:', error);
             return errorResponse(error instanceof Error ? error.message : 'Failed to list blog posts', 500);
         }
     }

@@ -1,9 +1,13 @@
 import { BaseModel } from './common.model';
 
 /**
- * User Role Type
+ * User Role Enum
  */
-export type UserRole = 'admin' | 'manager' | 'customer';
+export enum UserRole {
+    ADMIN = 'admin',
+    MANAGER = 'manager',
+    CUSTOMER = 'customer'
+}
 
 /**
  * User Model Interface

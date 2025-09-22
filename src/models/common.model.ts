@@ -31,13 +31,21 @@ export interface D1ExecResult {
     error?: string;
 }
 
+export interface R2Bucket {
+    put(key: string, value: ArrayBuffer | ReadableStream, options?: any): Promise<void>;
+    get(key: string): Promise<ReadableStream | null>;
+    delete(key: string): Promise<void>;
+}
+
 /**
  * Request Environment Interface
  */
 export interface Env {
     DB: D1Database;
+    IMAGES_BUCKET: R2Bucket;
     ENVIRONMENT: string;
     FIREBASE_PROJECT_ID: string;
+    
     DELHIVERY_API_KEY: string;
     RAZORPAY_KEY_ID: string;
     RAZORPAY_KEY_SECRET: string;
